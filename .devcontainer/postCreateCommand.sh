@@ -19,6 +19,8 @@ fi
 
 # Enter Pebble SDK environment
 cd pebble.nix
+echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+source ~/.nix-profile/etc/profile.d/nix.sh
 nix develop
 
 # Install X11 for emulator
