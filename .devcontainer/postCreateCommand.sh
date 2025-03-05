@@ -27,6 +27,10 @@ else
   source "$HOME/.nix-profile/etc/profile.d/nix.sh"
 fi
 
+# Workaround: Allow insecure store permissions (relaxes ownership checks)
+export NIX_STORE_ALLOW_INSECURE_FS=1
+echo "Set NIX_STORE_ALLOW_INSECURE_FS=1 to bypass store ownership checks"
+
 # Step 2: Configure Nix experimental features (nix-command and flakes)
 echo "Step 2: Configuring Nix experimental features (nix-command, flakes)"
 mkdir -p "$HOME/.config/nix"
