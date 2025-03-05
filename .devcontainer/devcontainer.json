@@ -1,7 +1,7 @@
 {
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "features": {
-    "ghcr.io/DeterminateSystems/devcontainer-features/nix:1": {}
+    
   },
   "postCreateCommand": "/bin/bash .devcontainer/postCreateCommand.sh",
   "customizations": {
