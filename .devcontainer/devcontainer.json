@@ -1,8 +1,5 @@
 {
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
-  "features": {
-    
-  },
   "postCreateCommand": "/bin/bash .devcontainer/postCreateCommand.sh",
   "customizations": {
     "vscode": {
@@ -14,5 +11,5 @@
     }
   },
   "forwardPorts": [6080],
-  "remoteUser": "codespace"
+  "remoteUser": "vscode"
 }
