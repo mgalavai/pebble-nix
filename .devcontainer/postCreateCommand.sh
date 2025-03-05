@@ -11,6 +11,7 @@ echo "Step 1: Checking for Nix installation"
 if ! command -v nix >/dev/null 2>&1; then
   echo "Nix not found. Installing Nix..."
   curl -L https://nixos.org/nix/install | sh
+  # Immediately source the Nix profile so that the rest of the script sees 'nix'
   if [ -f "$HOME/.nix-profile/etc/profile.d/nix.sh" ]; then
     echo "Sourcing Nix profile..."
     source "$HOME/.nix-profile/etc/profile.d/nix.sh"
@@ -26,7 +27,7 @@ else
   source "$HOME/.nix-profile/etc/profile.d/nix.sh"
 fi
 
-# Step 2: Configure experimental features for Nix
+# Step 2: Configure Nix experimental features (nix-command and flakes)
 echo "Step 2: Configuring Nix experimental features (nix-command, flakes)"
 mkdir -p "$HOME/.config/nix"
 if ! grep -q "experimental-features" "$HOME/.config/nix/nix.conf" 2>/dev/null; then
@@ -35,7 +36,7 @@ else
   echo "Experimental features already set."
 fi
 
-# Step 3: Clone pebble.nix repository if it does not exist
+# Step 3: Clone pebble.nix repository if not already present
 echo "Step 3: Cloning pebble.nix repository"
 if [ ! -d "$HOME/pebble.nix" ]; then
   git clone https://github.com/pebble-dev/pebble.nix.git "$HOME/pebble.nix" || { echo "ERROR: Failed to clone pebble.nix repository"; exit 1; }
@@ -48,12 +49,12 @@ echo "Step 4: Installing X11 dependencies (Xvfb and x11vnc)"
 sudo apt-get update
 sudo apt-get install -y xvfb x11vnc
 
-# Step 5: Start Xvfb with a resolution matching Pebble device screens
+# Step 5: Start virtual display (Xvfb) with resolution matching Pebble devices
 echo "Step 5: Starting virtual display (Xvfb) on :99 with resolution 144x168x16"
-Xvfb :99 -screen 0 144x168x16 &
 export DISPLAY=:99
+Xvfb :99 -screen 0 144x168x16 &
 
-# Step 6: Start x11vnc server for the emulator display
+# Step 6: Start x11vnc server for the virtual display
 echo "Step 6: Starting x11vnc server on display :99"
 x11vnc -display :99 -forever -nopw -listen 0.0.0.0 -xkb &
 
