@@ -3,34 +3,32 @@ set -e
 
 echo "📦 Setting up Pebble SDK in Codespaces..."
 
-# Ensure Nix is available
+# Install Nix manually
 if ! command -v nix >/dev/null; then
-  echo "🚨 Nix is not installed. Exiting."
-  exit 1
+  echo "🚀 Installing Nix..."
+  curl -L https://nixos.org/nix/install | sh
+  source ~/.nix-profile/etc/profile.d/nix.sh
+  echo "source ~/.nix-profile/etc/profile.d/nix.sh" >> ~/.bashrc
+  echo "source ~/.nix-profile/etc/profile.d/nix.sh" >> ~/.zshrc
 fi
 
-# Initialize Nix
-. /home/codespace/.nix-profile/etc/profile.d/nix.sh
-
-# Clone pebble.nix if not already present
+# Clone pebble.nix if not present
 if [ ! -d "pebble.nix" ]; then
   git clone https://github.com/pebble-dev/pebble.nix.git
 fi
 
-# Enter the development shell
+# Enter Pebble SDK environment
 cd pebble.nix
 nix develop
 
-# Install X11 server for the emulator
+# Install X11 for emulator
 sudo apt update && sudo apt install -y x11vnc xvfb
 
-# Start a virtual framebuffer (to run Pebble emulator headlessly)
+# Start virtual display
 Xvfb :99 -screen 0 1440x900x16 &
-
-# Export DISPLAY so programs know where to render graphics
 export DISPLAY=:99
 
-# Start a VNC server for the emulator
+# Start VNC for emulator
 x11vnc -display :99 -forever -nopw -listen 0.0.0.0 -xkb &
 
 echo "✅ Pebble SDK is ready to use!"
