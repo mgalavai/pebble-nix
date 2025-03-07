@@ -53,14 +53,7 @@
             libffi
             libusb1
             pkg-config
-            (python27Packages.virtualenv.overridePythonAttrs (old: { 
-              version = "16.7.9";  # Last version that fully supports Python 2.7
-              src = pkgs.fetchPypi {
-                pname = "virtualenv";
-                version = "16.7.9";
-                sha256 = "0mw15vlyzjmzrfzgw11ivxwa5ybx6dst717jf0qdgbbwi2wwbz13";
-              };
-            }))
+            # Virtualenv is installed via pip instead
             bash
             curl
             bzip2
@@ -104,9 +97,14 @@
             export PATH=$PEBBLE_SDK/bin:$PATH
             
             # Setup virtualenv for Pebble SDK
-            echo "Setting up Python virtualenv..."
             cd $PEBBLE_SDK
-            virtualenv --python=python2.7 .env
+            
+            # Install virtualenv via pip first
+            echo "Installing virtualenv via pip..."
+            ${pythonEnv}/bin/pip install virtualenv==16.7.9
+            
+            # Create and activate the virtualenv
+            ${pythonEnv}/bin/virtualenv --python=${pythonEnv}/bin/python2.7 .env
             source .env/bin/activate
             
             # Pin specific versions known to work with Python 2.7
@@ -212,14 +210,7 @@
             libffi
             libusb1
             pkg-config
-            (python27Packages.virtualenv.overridePythonAttrs (old: { 
-              version = "16.7.9";  # Last version that fully supports Python 2.7
-              src = pkgs.fetchPypi {
-                pname = "virtualenv";
-                version = "16.7.9";
-                sha256 = "0mw15vlyzjmzrfzgw11ivxwa5ybx6dst717jf0qdgbbwi2wwbz13";
-              };
-            }))
+            # Virtualenv is installed via pip instead
             bash
             curl
             bzip2
@@ -253,7 +244,13 @@
               
               # Setup virtualenv for Pebble SDK
               cd $PEBBLE_SDK
-              virtualenv --python=python2.7 .env
+              
+              # Install virtualenv via pip first
+              echo "Installing virtualenv via pip..."
+              ${pythonEnv}/bin/pip install virtualenv==16.7.9
+              
+              # Create and activate the virtualenv
+              ${pythonEnv}/bin/virtualenv --python=${pythonEnv}/bin/python2.7 .env
               source .env/bin/activate
               
               # Pin specific versions known to work with Python 2.7
