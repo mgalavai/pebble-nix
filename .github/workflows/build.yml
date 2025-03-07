@@ -12,5 +12,9 @@ jobs:
         with:
           nix_path: nixpkgs=channel:nixpkgs-unstable
         # Installs Nix on the runner
+      - uses: cachix/cachix-action@v10
+        with:
+          name: pebble
+        # Sets up the public Pebble binary cache
       - run: nix-shell --run "pebble build"
-        # Runs the build command in the Nix shell
+        # Runs your build command, now using the cache
