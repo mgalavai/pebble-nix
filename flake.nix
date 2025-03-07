@@ -30,19 +30,21 @@
           sha256 = "sha256-NQO+LO1v5Sn1WOlKVDUVoNqN8SIE7lhRk4iuhX9JTJI="; # Corrected hash from the error message
         };
         
-        # Pre-fetch Python packages we need
-        virtualenvPackage = pkgs.fetchurl {
-          url = "https://files.pythonhosted.org/packages/41/60/2c57214dd592dd987a49567aca48a99ec35874fa161eaecf1ea8d28b3cf8/virtualenv-16.7.9.tar.gz";
-          sha256 = "sha256-ymiEgcCYXYbBos6CX8yPhWejBTF0NRyUTT1KV3JsH3g=";
-        };
-        
         # Python 2.7 environment with required packages
         pythonEnv = pkgs.python27.withPackages (ps: with ps; [
-          # Only include the absolute minimum required packages to reduce compatibility issues
+          # Include all the Python packages we need directly from Nixpkgs
           wheel
           setuptools
           pip
-          # All other packages will be installed via pip during setup
+          virtualenv
+          
+          # Add some of the other packages we'll need
+          pyyaml
+          pillow
+          pygments
+          pyasn1
+          pyasn1-modules
+          # Additional packages can be added here
         ]);
         
         # Define paths for the build
@@ -64,7 +66,6 @@
             libffi
             libusb1
             pkg-config
-            # Virtualenv is installed via pip instead
             bash
             curl
             bzip2
@@ -101,52 +102,28 @@
             export PEBBLE_SDK=$HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
             export PATH=$PEBBLE_SDK/bin:$PATH
             
-            # Setup virtualenv for Pebble SDK
+            # Setup Python environment for the SDK
+            echo "Setting up Python environment for the SDK..."
             cd $PEBBLE_SDK
             
-            # Install virtualenv via pip from local file
-            echo "Installing virtualenv from local file..."
-            ${pythonEnv}/bin/pip install ${virtualenvPackage} --no-index
-            
-            # Create and activate the virtualenv
-            ${pythonEnv}/bin/virtualenv --python=${pythonEnv}/bin/python2.7 .env
+            # Create a Python virtual environment directly using the virtualenv we included
+            python -m virtualenv --no-download --python=${pythonEnv}/bin/python2.7 .env
             source .env/bin/activate
             
-            # Some packages that we need to pre-load
-            cat > requirements-minimal.txt << EOF
-            pip==20.3.4
-            wheel==0.37.1
-            setuptools==44.1.1
-            pyasn1==0.4.8
-            pyasn1-modules==0.2.8
-            pillow==6.2.2
-            pygments==2.5.2
-            pyyaml==5.4.1
-            pypng==0.0.20
-            websocket-client==0.57.0
-            oauth2client==4.1.3
-            pyserial==3.5
-            peewee==3.14.8
-            gevent==21.12.0
-            EOF
-            
-            # Disable network connection checks for pip - we're in a sandbox
+            # Set environment variables to work better in the sandbox
             export PIP_NO_INPUT=1
             export PIP_DISABLE_PIP_VERSION_CHECK=1
             
-            # Attempt to install our minimal requirements, but allow failure
-            # since we don't have network access
-            echo "Attempting to install Python dependencies - this might fail in the sandbox..."
-            pip install -r requirements-minimal.txt || echo "Python package installation failed - continuing anyway"
+            # We'll skip pip installations that require network and rely on the Nix-provided packages
             
             # According to the guide, we need to install SDK after the initial setup
             echo "Installing Pebble SDK components..."
-            pebble sdk install --no-analytics || echo "SDK installation failed, continuing anyway"
+            # We'll run this with --offline mode
+            pebble sdk install --no-analytics --offline || echo "SDK installation failed, continuing anyway"
             
             # Now try to install from the requirements with problematic packages removed
             if [ -f requirements.txt ]; then
-              grep -v -E "pygeoip|pyasn1" requirements.txt > fixed-requirements.txt || true
-              pip install -r fixed-requirements.txt || echo "Some pip installs failed - continuing anyway"
+              echo "Skipping requirements.txt installation (no network in sandbox)"
             else
               echo "No requirements.txt found, skipping requirements installation"
             fi
@@ -180,8 +157,8 @@
             echo "Current directory contents:"
             ls -la
             
-            # Build the app with error handling
-            pebble build || {
+            # Build the app in offline mode to avoid network requests
+            pebble build --offline || {
               echo "Pebble build failed, checking error logs..."
               if [ -d .pebble-build ]; then
                 find .pebble-build -name "*.log" -exec cat {} \;
@@ -239,7 +216,6 @@
             libffi
             libusb1
             pkg-config
-            # Virtualenv is installed via pip instead
             bash
             curl
             bzip2
@@ -266,38 +242,17 @@
               export PEBBLE_SDK=$HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
               export PATH=$PEBBLE_SDK/bin:$PATH
               
-              # Setup virtualenv for Pebble SDK
+              # Setup Python environment for the SDK
+              echo "Setting up Python environment for the SDK..."
               cd $PEBBLE_SDK
               
-              # Install virtualenv from local file
-              echo "Installing virtualenv from local file..."
-              ${pythonEnv}/bin/pip install ${virtualenvPackage} --no-index
-              
-              # Create and activate the virtualenv
-              ${pythonEnv}/bin/virtualenv --python=${pythonEnv}/bin/python2.7 .env
+              # Create a Python virtual environment directly
+              python -m virtualenv --python=${pythonEnv}/bin/python2.7 .env
               source .env/bin/activate
               
-              # Local requirements file for minimal dependencies
-              cat > requirements-minimal.txt << EOF
-              pip==20.3.4
-              wheel==0.37.1
-              setuptools==44.1.1
-              pyasn1==0.4.8
-              pyasn1-modules==0.2.8
-              pillow==6.2.2
-              pygments==2.5.2
-              pyyaml==5.4.1
-              pypng==0.0.20
-              websocket-client==0.57.0
-              oauth2client==4.1.3
-              pyserial==3.5
-              peewee==3.14.8
-              gevent==21.12.0
-              EOF
-              
-              # In dev shell, we can try to install these directly since we have network access
+              # In the development shell, we can try to install packages
               echo "Installing Python dependencies..."
-              pip install -r requirements-minimal.txt || echo "Some pip installs failed - continuing anyway"
+              pip install wheel setuptools pyasn1 pyasn1-modules pillow pygments pyyaml pygments pypng websocket-client oauth2client pyserial peewee gevent || echo "Some pip installs failed - continuing anyway"
               
               # According to the guide, we need to install SDK after the initial setup
               echo "Installing Pebble SDK components..."
