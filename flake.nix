@@ -434,26 +434,25 @@ EOF
             
             # First, disable any automatic downloaders in the SDK
             echo "Disabling network downloaders in the SDK..."
-            # Replace the find | grep pipeline with a more reliable approach
             echo "Looking for Python files that might contain network code..."
-            network_keywords="urllib\\|requests\\|http:"
-            find_cmd="find $PEBBLE_SDK -name '*.py' -type f"
+            
+            # Using a simpler approach that avoids complex pipes and expressions
+            find "$PEBBLE_SDK" -name "*.py" -type f > sdk_python_files.txt
             
             # First, just print how many files we found
-            total_files=$($find_cmd | wc -l)
+            total_files=$(wc -l < sdk_python_files.txt)
             echo "Found $total_files Python files to examine"
             
-            # Process files in smaller batches to avoid pipe overflow
-            $find_cmd > sdk_python_files.txt
             total_patched=0
             
-            # Process files directly instead of using a pipe
+            # Process files directly
             while read -r file; do
-              if grep -q "$network_keywords" "$file" 2>/dev/null; then
+              if grep -q "urllib\|requests\|http:" "$file" 2>/dev/null; then
                 echo "Patching $file to disable network requests..."
                 cp "$file" "$file.bak"
-                sed -i 's/\(import.*\(urllib\|requests\)\)/# \1/g' "$file" || echo "Failed to patch imports in $file"
-                sed -i 's/\(.*\(http:\|https:\|www\.\)\)/# \1/g' "$file" || echo "Failed to patch URLs in $file"
+                sed -i 's/import.*urllib/# &/g' "$file" || echo "Failed to patch urllib in $file"
+                sed -i 's/import.*requests/# &/g' "$file" || echo "Failed to patch requests in $file"
+                sed -i 's/.*http:/# &/g' "$file" || echo "Failed to patch URLs in $file"
                 total_patched=$((total_patched + 1))
               fi
             done < sdk_python_files.txt
@@ -727,26 +726,25 @@ EOF
               
               # First, disable any automatic downloaders in the SDK
               echo "Disabling network downloaders in the SDK..."
-              # Replace the find | grep pipeline with a more reliable approach
               echo "Looking for Python files that might contain network code..."
-              network_keywords="urllib\\|requests\\|http:"
-              find_cmd="find $PEBBLE_SDK -name '*.py' -type f"
+              
+              # Using a simpler approach that avoids complex pipes and expressions
+              find "$PEBBLE_SDK" -name "*.py" -type f > sdk_python_files.txt
               
               # First, just print how many files we found
-              total_files=$($find_cmd | wc -l)
+              total_files=$(wc -l < sdk_python_files.txt)
               echo "Found $total_files Python files to examine"
               
-              # Process files in smaller batches to avoid pipe overflow
-              $find_cmd > sdk_python_files.txt
               total_patched=0
               
-              # Process files directly instead of using a pipe
+              # Process files directly
               while read -r file; do
-                if grep -q "$network_keywords" "$file" 2>/dev/null; then
+                if grep -q "urllib\|requests\|http:" "$file" 2>/dev/null; then
                   echo "Patching $file to disable network requests..."
                   cp "$file" "$file.bak"
-                  sed -i 's/\(import.*\(urllib\|requests\)\)/# \1/g' "$file" || echo "Failed to patch imports in $file"
-                  sed -i 's/\(.*\(http:\|https:\|www\.\)\)/# \1/g' "$file" || echo "Failed to patch URLs in $file"
+                  sed -i 's/import.*urllib/# &/g' "$file" || echo "Failed to patch urllib in $file"
+                  sed -i 's/import.*requests/# &/g' "$file" || echo "Failed to patch requests in $file"
+                  sed -i 's/.*http:/# &/g' "$file" || echo "Failed to patch URLs in $file"
                   total_patched=$((total_patched + 1))
                 fi
               done < sdk_python_files.txt
