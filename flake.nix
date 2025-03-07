@@ -27,7 +27,7 @@
         pebbleSDKCore = pkgs.fetchurl {
           url = "https://rebble-sdk.s3-us-west-2.amazonaws.com/pebble-sdk-${pebbleSDKVersion}-linux64.tar.bz2";
           # We don't need to split into core and tools as this archive contains everything
-          sha256 = "1bi3q65dk6jcrfdhi369gnyi03lxljb2d6nq15fbmkyl8jggzy0x"; # Replace with actual hash if needed
+          sha256 = "sha256-NQO+LO1v5Sn1WOlKVDUVoNqN8SIE7lhRk4iuhX9JTJI="; # Corrected hash from the error message
         };
         
         # Python 2.7 environment with required packages
