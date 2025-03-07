@@ -21,17 +21,13 @@
         };
         
         # Pebble SDK setup
-        pebbleSDKVersion = "4.5";
+        pebbleSDKVersion = "4.6-rc2";
         
-        # Pre-fetch SDK files with Nix fetchurl
+        # Pre-fetch SDK files with Nix fetchurl - Using Rebble-hosted versions
         pebbleSDKCore = pkgs.fetchurl {
-          url = "https://github.com/aveao/PebbleArchive/raw/master/SDKCores/sdk-core-${pebbleSDKVersion}.tar.bz2";
-          sha256 = "0qj2iyp7psm9vrxkwqabh3giwwbq83py84gn2f0bkb49m7w82bry"; # Replace with actual hash
-        };
-        
-        pebbleSDKTools = pkgs.fetchurl {
-          url = "https://github.com/aveao/PebbleArchive/raw/master/SDKCores/sdk-tools-${pebbleSDKVersion}.tar.bz2";
-          sha256 = "1v5ks2fyg34gdnrb8sscl6qrqd8jmzbxydmkfvrvwz2xlfk58fay"; # Replace with actual hash
+          url = "https://rebble-sdk.s3-us-west-2.amazonaws.com/pebble-sdk-${pebbleSDKVersion}-linux64.tar.bz2";
+          # We don't need to split into core and tools as this archive contains everything
+          sha256 = "1bi3q65dk6jcrfdhi369gnyi03lxljb2d6nq15fbmkyl8jggzy0x"; # Replace with actual hash if needed
         };
         
         # Python 2.7 environment with required packages
@@ -91,12 +87,9 @@
               echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" | base64 -d > resources/images/background.png
             fi
             
-            # Use pre-fetched SDK files instead of downloading
-            echo "Extracting Pebble SDK core..."
-            tar -xjf ${pebbleSDKCore} -C $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
-            
-            echo "Extracting Pebble SDK tools..."
-            tar -xjf ${pebbleSDKTools} -C $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
+            # Use pre-fetched SDK files
+            echo "Extracting Pebble SDK..."
+            tar -xjf ${pebbleSDKCore} -C $HOME/pebble-dev/
             
             # Set up SDK environment
             export PEBBLE_SDK=$HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
@@ -123,6 +116,10 @@
             pip install pyyaml==5.4.1 pypng==0.0.20 || echo "Format libs install failed"
             pip install websocket-client==0.57.0 oauth2client==4.1.3 || echo "Client libs install failed"
             pip install pyserial==3.5 peewee==3.14.8 gevent==21.12.0 || echo "Additional libs install failed"
+            
+            # According to the guide, we need to install SDK after the initial setup
+            echo "Installing Pebble SDK components..."
+            pebble sdk install --no-analytics || echo "SDK installation failed, continuing anyway"
             
             # Now try to install from the requirements with problematic packages removed
             if [ -f requirements.txt ]; then
@@ -237,17 +234,15 @@
             # Check if Pebble SDK is already installed
             if [ ! -d "$HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64" ]; then
               echo "Downloading and installing Pebble SDK ${pebbleSDKVersion}..."
-              mkdir -p $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
+              mkdir -p $HOME/pebble-dev
               
-              # Copy pre-fetched SDK files instead of downloading
-              echo "Extracting Pebble SDK core..."
-              tar -xjf ${pebbleSDKCore} -C $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
-              
-              echo "Extracting Pebble SDK tools..."
-              tar -xjf ${pebbleSDKTools} -C $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
+              # Copy pre-fetched SDK files
+              echo "Extracting Pebble SDK..."
+              tar -xjf ${pebbleSDKCore} -C $HOME/pebble-dev/
               
               # Set up SDK environment
               export PEBBLE_SDK=$HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
+              export PATH=$PEBBLE_SDK/bin:$PATH
               
               # Setup virtualenv for Pebble SDK
               cd $PEBBLE_SDK
@@ -270,6 +265,10 @@
               pip install pyyaml==5.4.1 pypng==0.0.20 || echo "Format libs install failed"
               pip install websocket-client==0.57.0 oauth2client==4.1.3 || echo "Client libs install failed"
               pip install pyserial==3.5 peewee==3.14.8 gevent==21.12.0 || echo "Additional libs install failed"
+              
+              # According to the guide, we need to install SDK after the initial setup
+              echo "Installing Pebble SDK components..."
+              pebble sdk install --no-analytics || echo "SDK installation failed, continuing anyway"
               
               # Now try to install from the requirements with problematic packages removed
               if [ -f requirements.txt ]; then

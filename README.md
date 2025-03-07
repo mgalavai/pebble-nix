@@ -7,14 +7,14 @@ A full-featured Pebble smartwatch development environment in the cloud. This pro
   - Replaced nodejs-14_x with generic nodejs package
   - Updated pkgconfig to pkg-config for compatibility with newer Nixpkgs
   - Switched to pip-installed virtualenv instead of using the Nix package
-  - Used fetchurl for SDK files to work properly with Nix's sandbox restrictions
+  - Updated to Pebble SDK 4.6-rc2 using Rebble-hosted files (more reliable)
 - Added additional debug information to the build process
 - Enhanced error handling in the GitHub Actions workflow
 
 ## Features
 
 - **Cloud-Based Compilation** - Build Pebble apps in GitHub Actions
-- **Real Pebble SDK** - Uses the actual Pebble SDK 4.5 for compilation
+- **Real Pebble SDK** - Uses the actual Pebble SDK 4.6-rc2 for compilation
 - **Reproducible Builds** - Nix ensures consistent builds across environments
 - **JavaScript Support** - Includes PebbleKit JS for communication with phone apps
 
