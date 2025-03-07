@@ -31,7 +31,7 @@ jobs:
       - name: Check for lix in PATH
         run: which lix || echo "lix not found"
 
-        - name: Search for lix binary
+      - name: Search for lix binary
         run: |
           echo "Searching for lix binary across the system..."
           find / -type f -name lix 2>/dev/null
