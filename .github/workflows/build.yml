@@ -14,11 +14,17 @@ jobs:
             experimental-features = nix-command flakes
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
       - name: Configure Cachix
-        run: nix-shell -p cachix --run "cachix use pebble"
+        env:
+          NIXPKGS_ALLOW_INSECURE: "1"  # Allow insecure packages
+        run: nix-shell --impure -p cachix --run "cachix use pebble"
       - name: Install Pebble SDK
-        run: echo "y" | nix-shell --run "pebble sdk install latest"
+        env:
+          NIXPKGS_ALLOW_INSECURE: "1"  # Allow insecure packages
+        run: echo "y" | nix-shell --impure --run "pebble sdk install latest"
       - name: Build Pebble App
-        run: nix-shell --run "python /home/runner/.pebble-sdk/SDKs/current/sdk-core/pebble/waf configure build --platform=basalt"
+        env:
+          NIXPKGS_ALLOW_INSECURE: "1"  # Allow insecure packages
+        run: nix-shell --impure --run "python /home/runner/.pebble-sdk/SDKs/current/sdk-core/pebble/waf configure build --platform=basalt"
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
