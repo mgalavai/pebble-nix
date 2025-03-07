@@ -81,3 +81,38 @@ pebble build
 ## License
 
 MIT 
+
+# Pebble Nix Development
+
+This repository contains a Nix flake setup for building Pebble applications using Python 2.7.
+
+## Key Implementation Notes
+
+- **Python 2.7 Compatibility**: Using strictly Python 2.7 compatible packages
+  - Removed incompatible packages (pyyaml-6.0.2, etc.)
+  - Created placeholders for required packages with empty `__init__.py` files
+  - Fixed shebang lines and paths in Python/pip wrappers
+
+- **Build Performance Improvements**:
+  - Disabled automatic downloaders in the SDK
+  - Modified the find/grep pipeline to avoid "broken pipe" errors
+  - Added detailed error logging during build
+
+- **Error Handling Strategies**:
+  - Created fallback mechanisms for pip failures
+  - Added diagnostics to verify environment setup
+  - Implemented direct package installation when pip isn't available
+
+## Common Issues Solved
+
+1. **Hash Mismatch**: Updated hash for pip installer to match current version
+2. **Execution Permission Issues**: Fixed wrappers with explicit chmod 755
+3. **Nix String Interpolation**: Avoided problematic syntax like `${@: -1}` that conflicts with Nix parsing
+4. **Broken Pipe Errors**: Replaced complex pipelines with more reliable file-based approaches
+
+## Development Workflow
+
+1. Make changes to the code or Nix configuration
+2. Run `nix build` to build the project
+3. If build fails, check detailed logs to diagnose the issue
+4. If errors related to Python environment occur, check the wrappers in `.env/bin/` 
