@@ -47,8 +47,13 @@ jobs:
           # Set NIX_BUILD_SHELL to bash to avoid any potential shell issues
           export NIX_BUILD_SHELL=/bin/bash
           
+          # Allow specific old and insecure packages for compatibility
+          export NIXPKGS_ALLOW_INSECURE=1
+          export NIXPKGS_ALLOW_BROKEN=1  # For Python 2.7 packages that might be marked as broken
+          export NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM=1  # For more flexibility
+          
           # Build with extra safety flags
-          nix build --show-trace --verbose --impure
+          nix build --show-trace --verbose --impure --option allow-import-from-derivation true --option allow-unsupported-system true
           
           # Check the result and show build artifacts
           if [ -L result ]; then

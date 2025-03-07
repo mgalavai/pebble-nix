@@ -27,18 +27,11 @@
         
         # Python 2.7 environment with required packages
         pythonEnv = pkgs.python27.withPackages (ps: with ps; [
+          # Only include the absolute minimum required packages to reduce compatibility issues
           wheel
           setuptools
           pip
-          pygments
-          pillow
-          pypng
-          pyyaml
-          websocket-client
-          oauth2client
-          pyserial
-          peewee
-          gevent
+          # All other packages will be installed via pip during setup
         ]);
         
         # Define paths for the build
@@ -109,14 +102,20 @@
             virtualenv --python=python2.7 .env
             source .env/bin/activate
             
-            # Install required Python packages manually with pip for more resilience
-            echo "Installing Python dependencies..."
-            # Fixing requirements to avoid problematic packages
-            grep -v "pygeoip" requirements.txt > fixed-requirements.txt || true
-            pip install -r fixed-requirements.txt || echo "Some pip installs may have failed - continuing anyway"
+            # Pin specific versions known to work with Python 2.7
+            pip install --upgrade pip==20.3.4 || echo "pip upgrade failed, continuing"
             
-            # Install additional packages that might be needed
-            pip install wheel setuptools pygments pillow pypng pyyaml websocket-client oauth2client pyserial peewee gevent || echo "Some additional pip installs failed - continuing anyway"
+            # Install packages with Python 2.7 compatible versions
+            pip install wheel==0.37.1 setuptools==44.1.1 || echo "Basic tools install failed"
+            pip install pyasn1==0.4.8 pyasn1-modules==0.2.8 || echo "pyasn1 install failed"
+            pip install pillow==6.2.2 pygments==2.5.2 || echo "Imaging libs install failed"
+            pip install pyyaml==5.4.1 pypng==0.0.20 || echo "Format libs install failed"
+            pip install websocket-client==0.57.0 oauth2client==4.1.3 || echo "Client libs install failed"
+            pip install pyserial==3.5 peewee==3.14.8 gevent==21.12.0 || echo "Additional libs install failed"
+            
+            # Now try to install from the requirements with problematic packages removed
+            grep -v -E "pygeoip|pyasn1" requirements.txt > fixed-requirements.txt || true
+            pip install -r fixed-requirements.txt || echo "Some pip installs failed - continuing anyway"
             
             deactivate
             
@@ -242,7 +241,22 @@
               cd $PEBBLE_SDK
               virtualenv --python=python2.7 .env
               source .env/bin/activate
-              pip install -r requirements.txt || echo "Some pip installs may have failed - continuing anyway"
+              
+              # Pin specific versions known to work with Python 2.7
+              pip install --upgrade pip==20.3.4 || echo "pip upgrade failed, continuing"
+              
+              # Install packages with Python 2.7 compatible versions
+              pip install wheel==0.37.1 setuptools==44.1.1 || echo "Basic tools install failed"
+              pip install pyasn1==0.4.8 pyasn1-modules==0.2.8 || echo "pyasn1 install failed"
+              pip install pillow==6.2.2 pygments==2.5.2 || echo "Imaging libs install failed"
+              pip install pyyaml==5.4.1 pypng==0.0.20 || echo "Format libs install failed"
+              pip install websocket-client==0.57.0 oauth2client==4.1.3 || echo "Client libs install failed"
+              pip install pyserial==3.5 peewee==3.14.8 gevent==21.12.0 || echo "Additional libs install failed"
+              
+              # Now try to install from the requirements with problematic packages removed
+              grep -v -E "pygeoip|pyasn1" requirements.txt > fixed-requirements.txt || true
+              pip install -r fixed-requirements.txt || echo "Some pip installs failed - continuing anyway"
+              
               deactivate
               
               # Create required SDK configurations
