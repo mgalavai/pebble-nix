@@ -60,9 +60,9 @@ jobs:
       # you might run:
       - name: Build project
         run: |
-          # Use the simpler flake-based build for Pebble SDK hello world app
-          echo "Building with 'lix build .' command..."
-          lix build . || echo "lix build failed"
+          # Use Nix (not Lix) to build the project
+          echo "Building with 'nix build .' command..."
+          nix build . || echo "nix build failed"
           
           # Verify the build result
           echo "Checking build result:"
