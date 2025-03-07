@@ -436,7 +436,7 @@ EOF
             echo "Disabling network downloaders in the SDK..."
             # Replace the find | grep pipeline with a more reliable approach
             echo "Looking for Python files that might contain network code..."
-            network_keywords="urllib\|requests\|http:"
+            network_keywords="urllib\\|requests\\|http:"
             find_cmd="find $PEBBLE_SDK -name '*.py' -type f"
             
             # First, just print how many files we found
@@ -729,7 +729,7 @@ EOF
               echo "Disabling network downloaders in the SDK..."
               # Replace the find | grep pipeline with a more reliable approach
               echo "Looking for Python files that might contain network code..."
-              network_keywords="urllib\|requests\|http:"
+              network_keywords="urllib\\|requests\\|http:"
               find_cmd="find $PEBBLE_SDK -name '*.py' -type f"
               
               # First, just print how many files we found
