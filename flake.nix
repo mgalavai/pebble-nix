@@ -53,7 +53,14 @@
             libffi
             libusb1
             pkg-config
-            python27Packages.virtualenv
+            (python27Packages.virtualenv.overridePythonAttrs (old: { 
+              version = "16.7.9";  # Last version that fully supports Python 2.7
+              src = pkgs.fetchPypi {
+                pname = "virtualenv";
+                version = "16.7.9";
+                sha256 = "0mw15vlyzjmzrfzgw11ivxwa5ybx6dst717jf0qdgbbwi2wwbz13";
+              };
+            }))
             bash
             curl
             bzip2
@@ -205,7 +212,14 @@
             libffi
             libusb1
             pkg-config
-            python27Packages.virtualenv
+            (python27Packages.virtualenv.overridePythonAttrs (old: { 
+              version = "16.7.9";  # Last version that fully supports Python 2.7
+              src = pkgs.fetchPypi {
+                pname = "virtualenv";
+                version = "16.7.9";
+                sha256 = "0mw15vlyzjmzrfzgw11ivxwa5ybx6dst717jf0qdgbbwi2wwbz13";
+              };
+            }))
             bash
             curl
             bzip2

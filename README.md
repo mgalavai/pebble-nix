@@ -6,6 +6,7 @@ A full-featured Pebble smartwatch development environment in the cloud. This pro
 - Fixed build issues in GitHub Actions:
   - Replaced nodejs-14_x with generic nodejs package
   - Updated pkgconfig to pkg-config for compatibility with newer Nixpkgs
+  - Fixed virtualenv incompatibility by pinning to version 16.7.9 (last version supporting Python 2.7)
 - Added additional debug information to the build process
 - Enhanced error handling in the GitHub Actions workflow
 
