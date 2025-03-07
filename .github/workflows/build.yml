@@ -18,7 +18,7 @@ jobs:
       - name: Install Pebble SDK
         run: echo "y" | nix-shell --run "pebble sdk install latest"
       - name: Build Pebble App
-        run: nix-shell --run "pebble build --no-memory-report"  # Try this flag
+        run: nix-shell --run "pebble build --waf-opts='-T'"  # Disable extra tools
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
