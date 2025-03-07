@@ -21,9 +21,25 @@ jobs:
       # Install Lix using Nix directly
       - name: Install Lix
         run: |
-          nix-env -iA nixpkgs.lix
-          echo "Lix installation path:"
-          which lix || echo "lix not found after installation"
+          # First, search for lix package to find the correct attribute path
+          echo "Searching for Lix package in Nixpkgs..."
+          nix-env -qaP '*lix*' || echo "No packages matching 'lix' found"
+          
+          # Try alternative installation methods
+          echo "Trying to install Lix using alternative methods..."
+          # Method 1: Try direct URL to Lix binary
+          curl -L https://github.com/lix-pm/lix.client/releases/download/v15.12.0/lix-linux.tar.gz -o lix.tar.gz || echo "Failed to download Lix"
+          mkdir -p ~/lix && tar -xzf lix.tar.gz -C ~/lix || echo "Failed to extract Lix"
+          export PATH="$HOME/lix:$PATH"
+          echo "PATH after adding Lix directory: $PATH"
+          
+          # Method 2: Try npm installation as fallback
+          echo "Trying npm installation as fallback..."
+          npm install -g lix || echo "npm installation of Lix failed"
+          
+          # Check if Lix is now available
+          echo "Checking Lix installation:"
+          which lix || echo "lix command not found after all installation attempts"
 
       - name: Setup Nix environment and check version
         run: |
