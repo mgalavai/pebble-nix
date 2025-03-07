@@ -6,8 +6,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Check out your repository code
-      - uses: actions/checkout@v2
+      # Step 1: Checkout your repository
+      - uses: actions/checkout@v4  # Updated to latest checkout action
 
       # Step 2: Install Nix
       - uses: cachix/install-nix-action@v15
@@ -17,33 +17,17 @@ jobs:
             experimental-features = nix-command flakes
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
-      # Step 3: Install Cachix with error checking
-      - name: Install Cachix
-        run: |
-          nix-env -iA cachix -f https://cachix.org/api/v1/install || { echo "Cachix installation failed"; exit 1; }
-          nix-env -q  # List installed packages to confirm cachix is there
-
-      # Step 4: Source the Nix profile
-      - name: Source Nix Profile
-        run: |
-          if [ -f /nix/var/nix/profiles/default/etc/profile.d/nix.sh ]; then
-            . /nix/var/nix/profiles/default/etc/profile.d/nix.sh
-          fi
-          if [ -f /nix/var/nix/profiles/per-user/runner/profile/etc/profile.d/nix.sh ]; then
-            . /nix/var/nix/profiles/per-user/runner/profile/etc/profile.d/nix.sh
-          fi
-
-      # Step 5: Verify Cachix is available
-      - name: Verify Cachix
-        run: |
-          echo "PATH is: $PATH"
-          which cachix || echo "cachix not found"
-          cachix --version || echo "cachix version check failed"
-
-      # Step 6: Configure Cachix
+      # Step 3: Configure Cachix for the pebble cache
       - name: Configure Cachix
-        run: cachix use pebble
+        run: nix-shell -p cachix --run "cachix use pebble"
 
-      # Step 7: Build the Pebble app
+      # Step 4: Build the Pebble app
       - name: Build Pebble App
         run: nix-shell --run "pebble build"
+
+      # Step 5: Optional - Store the built artifact
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: pebble-app
+          path: build/*.pbw  # Assuming the output is a .pbw file
