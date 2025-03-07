@@ -440,13 +440,11 @@ EOF
             mkdir -p $HOME/patched_files
 
             # List of critical files to patch - better to target specific files than try to find all
-            critical_files=(
-              "bin/pebble"
-              "bin/pebble-tool"
-            )
+            # Use a simple space-separated list instead of a bash array
+            critical_files="bin/pebble bin/pebble-tool"
 
             # Focus on the most critical files first
-            for relative_path in "${critical_files[@]}"; do
+            for relative_path in $critical_files; do
               file="$PEBBLE_SDK/$relative_path"
               
               if [ -f "$file" ] && [ -r "$file" ]; then
@@ -766,13 +764,11 @@ EOF
               mkdir -p $HOME/patched_files
 
               # List of critical files to patch - better to target specific files than try to find all
-              critical_files=(
-                "bin/pebble"
-                "bin/pebble-tool"
-              )
+              # Use a simple space-separated list instead of a bash array
+              critical_files="bin/pebble bin/pebble-tool"
 
               # Focus on the most critical files first
-              for relative_path in "${critical_files[@]}"; do
+              for relative_path in $critical_files; do
                 file="$PEBBLE_SDK/$relative_path"
                 
                 if [ -f "$file" ] && [ -r "$file" ]; then
