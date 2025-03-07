@@ -25,8 +25,7 @@ jobs:
       - name: Check Nix installation
         run: |
           . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
-          echo "Nix version:"
-          nix --version
+          echo "Nix version: $(nix --version)"
 
       # Build the Pebble project using the real SDK
       - name: Build Pebble project
@@ -40,40 +39,33 @@ jobs:
           nix-channel --add https://nixos.org/channels/nixos-unstable nixos
           nix-channel --update
           
-          # Create a wrapper script to handle additional environment settings
+          # Create a wrapper script with streamlined output
           cat > build.sh << 'EOF'
           #!/bin/bash
           set -e
           
-          # Set NIX_BUILD_SHELL to bash to avoid any potential shell issues
+          # Set NIX_BUILD_SHELL to bash
           export NIX_BUILD_SHELL=/bin/bash
           
-          # Print debugging info for Nix
-          echo "Nix system information:"
-          nix-info -m || echo "nix-info not available"
+          # Suppress warning messages from Nix
+          export NIX_CONFIG="warn-dirty = false"
           
-          # Print nixpkgs version
-          echo "Using nixpkgs version:"
-          nix-instantiate --eval -E '(import <nixpkgs> {}).lib.version' || echo "Could not determine nixpkgs version"
+          # Print nixpkgs version (more concise)
+          echo "Using nixpkgs: $(nix-instantiate --eval -E '(import <nixpkgs> {}).lib.version' 2>/dev/null || echo "unknown")"
           
-          # Check if nodejs is available
-          echo "Checking nodejs availability:"
-          nix-env -qa nodejs || echo "Could not query nodejs package"
+          # Skip the nodejs availability check that produces many warnings
           
-          # Build with extra safety flags and show extensive tracing
-          echo "Starting build with tracing enabled..."
-          nix build --show-trace --verbose --impure \
+          # Run build with tracing but filter out some of the verbose output
+          echo "Starting build..."
+          nix build --option warn-dirty false --impure \
             --option allow-import-from-derivation true \
-            --option allow-unsupported-system true
+            --option allow-unsupported-system true 2>&1 | grep -v "trace: evaluation warning:" || true
           
           # Check the result and show build artifacts
           if [ -L result ]; then
-            echo "Build succeeded! Result directory contents:"
-            ls -la result/
+            echo "Build succeeded! Found artifacts:"
             find result -type f -name "*.pbw" | while read pbw; do
-              echo "Found .pbw file: $pbw"
-              file "$pbw" || echo "Could not determine file type"
-              ls -la "$pbw"
+              echo "- $pbw ($(du -h "$pbw" | cut -f1))"
             done
           else
             echo "Build failed, no result symlink found"
