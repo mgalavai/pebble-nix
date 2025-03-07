@@ -191,13 +191,121 @@
               echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" | base64 -d > resources/images/background.png
             fi
             
+            # Create a basic appinfo.json if it doesn't exist
+            if [ ! -f appinfo.json ]; then
+              echo "Creating minimal appinfo.json..."
+              cat > appinfo.json << EOF
+{
+  "uuid": "$(uuidgen || echo "00000000-0000-0000-0000-000000000000")",
+  "shortName": "PebbleApp",
+  "longName": "Pebble Application",
+  "companyName": "Pebble Developer",
+  "versionLabel": "1.0",
+  "sdkVersion": "3",
+  "targetPlatforms": ["aplite", "basalt", "chalk", "diorite"],
+  "watchapp": {
+    "watchface": false
+  },
+  "resources": {
+    "media": []
+  }
+}
+EOF
+            fi
+            
+            # Create a minimal wscript if it doesn't exist
+            if [ ! -f wscript ]; then
+              echo "Creating minimal wscript..."
+              cat > wscript << EOF
+#!/usr/bin/env python
+
+import os.path
+
+TOP = '.'
+APPNAME = 'pebble-app'
+
+def options(ctx):
+    ctx.load('pebble_sdk')
+
+def configure(ctx):
+    ctx.load('pebble_sdk')
+
+def build(ctx):
+    ctx.load('pebble_sdk')
+    ctx.pbl_program(source=ctx.path.ant_glob('src/**/*.c'),
+                    target='pebble-app.elf')
+    ctx.pbl_bundle(elf='pebble-app.elf',
+                   js=ctx.path.ant_glob(['src/js/**/*.js']))
+EOF
+            fi
+            
+            # Create src directory and minimal C file if not exists
+            if [ ! -d src ]; then
+              echo "Creating minimal src directory..."
+              mkdir -p src
+              cat > src/main.c << EOF
+#include <pebble.h>
+
+static Window *s_main_window;
+static TextLayer *s_text_layer;
+
+static void main_window_load(Window *window) {
+  Layer *window_layer = window_get_root_layer(window);
+  GRect bounds = layer_get_bounds(window_layer);
+
+  s_text_layer = text_layer_create(GRect(0, 72, bounds.size.w, 20));
+  text_layer_set_text(s_text_layer, "Pebble App");
+  text_layer_set_text_alignment(s_text_layer, GTextAlignmentCenter);
+  layer_add_child(window_layer, text_layer_get_layer(s_text_layer));
+}
+
+static void main_window_unload(Window *window) {
+  text_layer_destroy(s_text_layer);
+}
+
+static void init() {
+  s_main_window = window_create();
+  window_set_window_handlers(s_main_window, (WindowHandlers) {
+    .load = main_window_load,
+    .unload = main_window_unload,
+  });
+  window_stack_push(s_main_window, true);
+}
+
+static void deinit() {
+  window_destroy(s_main_window);
+}
+
+int main(void) {
+  init();
+  app_event_loop();
+  deinit();
+}
+EOF
+            fi
+            
             # Use pre-fetched SDK files (with less verbose output)
             echo "Extracting Pebble SDK..."
-            tar -xjf ${pebbleSDKCore} -C $HOME/pebble-dev/ 2>/dev/null
+            tar -xjf ${pebbleSDKCore} -C $HOME/pebble-dev/ 2>/dev/null || {
+              echo "ERROR: Failed to extract Pebble SDK"
+              echo "Checking archive integrity..."
+              file ${pebbleSDKCore}
+              echo "Attempting extraction with more verbose output..."
+              tar -xjvf ${pebbleSDKCore} -C $HOME/pebble-dev/
+              exit 1
+            }
             
             # Set up SDK environment
             export PEBBLE_SDK=$HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
             export PATH=$PEBBLE_SDK/bin:$PATH
+            
+            # Make sure SDK directory exists
+            if [ ! -d "$PEBBLE_SDK" ]; then
+              echo "ERROR: SDK directory not found at $PEBBLE_SDK"
+              echo "Contents of pebble-dev directory:"
+              ls -la $HOME/pebble-dev/
+              exit 1
+            fi
             
             # Setup Python environment for the SDK (with less verbose output)
             echo "Setting up Python environment..."
@@ -228,8 +336,7 @@ EOF
             cp -r ${pkgs.python27Packages.setuptools}/lib/python2.7/site-packages/* .env/lib/python2.7/site-packages/ || echo "Failed to copy setuptools"
             cp -r ${pkgs.python27Packages.wheel}/lib/python2.7/site-packages/* .env/lib/python2.7/site-packages/ || echo "Failed to copy wheel"
             cp -r ${pkgs.python27Packages.pip}/lib/python2.7/site-packages/* .env/lib/python2.7/site-packages/ || echo "Failed to copy pip"
-            cp -r ${pkgs.python27Packages.pyasn1}/lib/python2.7/site-packages/* .env/lib/python2.7/site-packages/ || echo "Failed to copy pyasn1"
-            cp -r ${pkgs.python27Packages.pyyaml}/lib/python2.7/site-packages/* .env/lib/python2.7/site-packages/ || echo "Failed to copy pyyaml"
+            # pyasn1 is not compatible with Python 2.7 in recent nixpkgs, so we'll install it manually
             
             # Fallback to online installation if the offline approach fails
             if [ ! -d ".env/lib/python2.7/site-packages/pip" ]; then
@@ -278,11 +385,27 @@ EOF
               echo "Installing necessary Python packages..."
               # Use --no-deps to prevent pip from trying to install potentially incompatible dependencies
               .env/bin/pip install wheel==0.37.1 setuptools==44.1.1 --no-deps -q --target=.env/lib/python2.7/site-packages || echo "Basic packages installation failed, continuing anyway"
-              .env/bin/pip install pyasn1==0.4.8 pyasn1-modules==0.2.8 --no-deps -q --target=.env/lib/python2.7/site-packages || echo "ASN1 installation failed, continuing anyway"
-              .env/bin/pip install pyyaml==5.4.1 pillow==6.2.2 pygments==2.5.2 --no-deps -q --target=.env/lib/python2.7/site-packages || echo "Failed to install some packages, continuing anyway"
             else
               echo "Using pre-installed Python packages"
             fi
+            
+            # Always install pyasn1 manually since the Nix version is incompatible
+            echo "Installing pyasn1 and other required packages manually..."
+            .env/bin/pip install pyasn1==0.4.8 pyasn1-modules==0.2.8 --no-deps -q --target=.env/lib/python2.7/site-packages || {
+              echo "ASN1 installation failed, checking diagnostics..."
+              echo "Python interpreter info:"
+              .env/bin/python --version
+              echo "Checking Python paths:"
+              .env/bin/python -c "import sys; print(sys.path)"
+              echo "Continuing despite installation failure..."
+            }
+            
+            # Now install other required packages
+            echo "Installing other required packages..."
+            .env/bin/pip install pyyaml==5.4.1 pillow==6.2.2 pygments==2.5.2 --no-deps -q --target=.env/lib/python2.7/site-packages || {
+              echo "Package installation failed, checking diagnostics..."
+              echo "Continuing despite installation failure..."
+            }
             
             # In the dev shell, we can try to install more packages
             echo "Installing additional Python dependencies..."
@@ -291,7 +414,18 @@ EOF
             # According to the guide, we need to install SDK after the initial setup
             echo "Installing Pebble SDK components..."
             # Run in offline mode with reduced output
-            pebble sdk install --no-analytics --offline &>/dev/null || echo "SDK installation failed, continuing anyway"
+            pebble sdk install --no-analytics --offline &>/dev/null || {
+              echo "SDK installation failed, attempting with more verbose output..."
+              echo "Running with verbose flag..."
+              pebble sdk install --no-analytics --offline --verbose || {
+                echo "SDK installation still failed, checking diagnostic info..."
+                echo "Pebble command version:"
+                pebble --version
+                echo "Contents of SDK directory:"
+                ls -la $PEBBLE_SDK
+                echo "Continuing despite installation failure..."
+              }
+            }
             
             # Skip requirements.txt installation in sandbox
             if [ -f requirements.txt ]; then
@@ -437,8 +571,7 @@ EOF
               cp -r ${pkgs.python27Packages.setuptools}/lib/python2.7/site-packages/* .env/lib/python2.7/site-packages/ || echo "Failed to copy setuptools"
               cp -r ${pkgs.python27Packages.wheel}/lib/python2.7/site-packages/* .env/lib/python2.7/site-packages/ || echo "Failed to copy wheel"
               cp -r ${pkgs.python27Packages.pip}/lib/python2.7/site-packages/* .env/lib/python2.7/site-packages/ || echo "Failed to copy pip"
-              cp -r ${pkgs.python27Packages.pyasn1}/lib/python2.7/site-packages/* .env/lib/python2.7/site-packages/ || echo "Failed to copy pyasn1"
-              cp -r ${pkgs.python27Packages.pyyaml}/lib/python2.7/site-packages/* .env/lib/python2.7/site-packages/ || echo "Failed to copy pyyaml"
+              # pyasn1 is not compatible with Python 2.7 in recent nixpkgs, so we'll install it manually
               
               # Fallback to online installation if the offline approach fails
               if [ ! -d ".env/lib/python2.7/site-packages/pip" ]; then
@@ -487,11 +620,27 @@ EOF
                 echo "Installing necessary Python packages..."
                 # Use --no-deps to prevent pip from trying to install potentially incompatible dependencies
                 .env/bin/pip install wheel==0.37.1 setuptools==44.1.1 --no-deps -q --target=.env/lib/python2.7/site-packages || echo "Basic packages installation failed, continuing anyway"
-                .env/bin/pip install pyasn1==0.4.8 pyasn1-modules==0.2.8 --no-deps -q --target=.env/lib/python2.7/site-packages || echo "ASN1 installation failed, continuing anyway"
-                .env/bin/pip install pyyaml==5.4.1 pillow==6.2.2 pygments==2.5.2 --no-deps -q --target=.env/lib/python2.7/site-packages || echo "Failed to install some packages, continuing anyway"
               else
                 echo "Using pre-installed Python packages"
               fi
+              
+              # Always install pyasn1 manually since the Nix version is incompatible
+              echo "Installing pyasn1 and other required packages manually..."
+              .env/bin/pip install pyasn1==0.4.8 pyasn1-modules==0.2.8 --no-deps -q --target=.env/lib/python2.7/site-packages || {
+                echo "ASN1 installation failed, checking diagnostics..."
+                echo "Python interpreter info:"
+                .env/bin/python --version
+                echo "Checking Python paths:"
+                .env/bin/python -c "import sys; print(sys.path)"
+                echo "Continuing despite installation failure..."
+              }
+              
+              # Now install other required packages
+              echo "Installing other required packages..."
+              .env/bin/pip install pyyaml==5.4.1 pillow==6.2.2 pygments==2.5.2 --no-deps -q --target=.env/lib/python2.7/site-packages || {
+                echo "Package installation failed, checking diagnostics..."
+                echo "Continuing despite installation failure..."
+              }
               
               # In the dev shell, we can try to install more packages
               echo "Installing additional Python dependencies..."
