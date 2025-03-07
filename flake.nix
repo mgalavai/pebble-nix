@@ -390,7 +390,7 @@ else
   echo "Pip module not found, attempting direct installation"
   echo "Standard pip install error, falling back to direct file copy approach"
   if [ "$1" = "install" ]; then
-    # Get the last argument without using ${@: -1} syntax which causes problems with Nix
+    # Get the last argument using a for loop 
     for last_arg; do true; done
     pkg="$last_arg"
     echo "Attempting to directly install: $pkg"
@@ -653,7 +653,7 @@ else
   echo "Pip module not found, attempting direct installation"
   echo "Standard pip install error, falling back to direct file copy approach"
   if [ "$1" = "install" ]; then
-    # Get the last argument without using ${@: -1} syntax which causes problems with Nix
+    # Get the last argument using a for loop 
     for last_arg; do true; done
     pkg="$last_arg"
     echo "Attempting to directly install: $pkg"
