@@ -390,7 +390,9 @@ else
   echo "Pip module not found, attempting direct installation"
   echo "Standard pip install error, falling back to direct file copy approach"
   if [ "$1" = "install" ]; then
-    pkg=${@: -1}
+    # Get the last argument without using ${@: -1} syntax which causes problems with Nix
+    for last_arg; do true; done
+    pkg="$last_arg"
     echo "Attempting to directly install: $pkg"
     mkdir -p "$PEBBLE_SDK/.env/lib/python2.7/site-packages/$pkg"
     echo "Created placeholder for $pkg"
@@ -651,7 +653,9 @@ else
   echo "Pip module not found, attempting direct installation"
   echo "Standard pip install error, falling back to direct file copy approach"
   if [ "$1" = "install" ]; then
-    pkg=${@: -1}
+    # Get the last argument without using ${@: -1} syntax which causes problems with Nix
+    for last_arg; do true; done
+    pkg="$last_arg"
     echo "Attempting to directly install: $pkg"
     mkdir -p "$PEBBLE_SDK/.env/lib/python2.7/site-packages/$pkg"
     echo "Created placeholder for $pkg"
