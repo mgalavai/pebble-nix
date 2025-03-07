@@ -434,12 +434,31 @@ EOF
             
             # First, disable any automatic downloaders in the SDK
             echo "Disabling network downloaders in the SDK..."
-            find $PEBBLE_SDK -name "*.py" -type f -exec grep -l "urllib\|requests\|http:" {} \; | while read file; do
-              echo "Patching $file to disable network requests..."
-              cp "$file" "$file.bak"
-              sed -i 's/\(import.*\(urllib\|requests\)\)/# \1/g' "$file"
-              sed -i 's/\(.*\(http:\|https:\|www\.\)\)/# \1/g' "$file"
-            done
+            # Replace the find | grep pipeline with a more reliable approach
+            echo "Looking for Python files that might contain network code..."
+            network_keywords="urllib\|requests\|http:"
+            find_cmd="find $PEBBLE_SDK -name '*.py' -type f"
+            
+            # First, just print how many files we found
+            total_files=$($find_cmd | wc -l)
+            echo "Found $total_files Python files to examine"
+            
+            # Process files in smaller batches to avoid pipe overflow
+            $find_cmd > sdk_python_files.txt
+            total_patched=0
+            
+            # Process files directly instead of using a pipe
+            while read -r file; do
+              if grep -q "$network_keywords" "$file" 2>/dev/null; then
+                echo "Patching $file to disable network requests..."
+                cp "$file" "$file.bak"
+                sed -i 's/\(import.*\(urllib\|requests\)\)/# \1/g' "$file" || echo "Failed to patch imports in $file"
+                sed -i 's/\(.*\(http:\|https:\|www\.\)\)/# \1/g' "$file" || echo "Failed to patch URLs in $file"
+                total_patched=$((total_patched + 1))
+              fi
+            done < sdk_python_files.txt
+            
+            echo "Patched $total_patched files to disable network access"
             
             # Run in offline mode with reduced output
             pebble sdk install --no-analytics --offline &>/dev/null || {
@@ -486,12 +505,23 @@ EOF
             # Skip version check to reduce output
             echo "Using Pebble SDK $(pebble --version 2>/dev/null || echo "unknown")"
             
-            # Build the app in offline mode with reduced output
+            # Build the app in offline mode with better error handling
             echo "Running pebble build..."
-            pebble build --offline 2>&1 | grep -v "WARNING" || {
-              echo "Pebble build failed, checking error logs..."
+            # Save the build output to a file instead of piping directly to grep
+            pebble build --offline > build_output.log 2>&1 || {
+              echo "Pebble build failed with exit code $?"
+              echo "===== BUILD OUTPUT ====="
+              cat build_output.log
+              echo "======================="
+              echo "Checking for error logs..."
               if [ -d .pebble-build ]; then
+                echo "Found .pebble-build directory. Contents:"
+                find .pebble-build -type f | sort
+                echo "===== ERROR LOGS ====="
                 find .pebble-build -name "*.log" -exec cat {} \;
+                echo "======================="
+              else
+                echo "No .pebble-build directory found."
               fi
               # Continue despite errors, to allow fallback pbw creation
               echo "Continuing despite build errors to create fallback .pbw file"
@@ -697,12 +727,31 @@ EOF
               
               # First, disable any automatic downloaders in the SDK
               echo "Disabling network downloaders in the SDK..."
-              find $PEBBLE_SDK -name "*.py" -type f -exec grep -l "urllib\|requests\|http:" {} \; | while read file; do
-                echo "Patching $file to disable network requests..."
-                cp "$file" "$file.bak"
-                sed -i 's/\(import.*\(urllib\|requests\)\)/# \1/g' "$file"
-                sed -i 's/\(.*\(http:\|https:\|www\.\)\)/# \1/g' "$file"
-              done
+              # Replace the find | grep pipeline with a more reliable approach
+              echo "Looking for Python files that might contain network code..."
+              network_keywords="urllib\|requests\|http:"
+              find_cmd="find $PEBBLE_SDK -name '*.py' -type f"
+              
+              # First, just print how many files we found
+              total_files=$($find_cmd | wc -l)
+              echo "Found $total_files Python files to examine"
+              
+              # Process files in smaller batches to avoid pipe overflow
+              $find_cmd > sdk_python_files.txt
+              total_patched=0
+              
+              # Process files directly instead of using a pipe
+              while read -r file; do
+                if grep -q "$network_keywords" "$file" 2>/dev/null; then
+                  echo "Patching $file to disable network requests..."
+                  cp "$file" "$file.bak"
+                  sed -i 's/\(import.*\(urllib\|requests\)\)/# \1/g' "$file" || echo "Failed to patch imports in $file"
+                  sed -i 's/\(.*\(http:\|https:\|www\.\)\)/# \1/g' "$file" || echo "Failed to patch URLs in $file"
+                  total_patched=$((total_patched + 1))
+                fi
+              done < sdk_python_files.txt
+              
+              echo "Patched $total_patched files to disable network access"
               
               # Run in offline mode with reduced output
               pebble sdk install --no-analytics --offline &>/dev/null || {
