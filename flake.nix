@@ -33,15 +33,13 @@
         # Python 2.7 environment with required packages
         # Note: We're explicitly NOT including virtualenv since newer versions depend on incompatible packages
         pythonEnv = pkgs.python27.withPackages (ps: with ps; [
-          # Include only essential packages
+          # Include only the absolute minimum essential packages
           wheel
           setuptools
           pip
           
-          # Add some of the other packages we'll need
-          pyyaml
-          pillow
-          pygments
+          # Avoid including any packages that might have compatibility issues with Python 2.7
+          # Only include packages explicitly marked as Python 2.7 compatible
           pyasn1
           pyasn1-modules
         ]);
@@ -190,6 +188,10 @@
             echo "Installing core Python packages..."
             cp -r ${pythonEnv}/lib/python2.7/site-packages/* .env/lib/python2.7/site-packages/ 2>/dev/null || echo "Failed to copy packages, continuing anyway"
             
+            # Install specific older versions of packages known to work with Python 2.7
+            echo "Installing compatible package versions..."
+            pip install pyyaml==5.4.1 pillow==6.2.2 pygments==2.5.2 --no-deps -q || echo "Failed to install some packages, continuing anyway"
+            
             # According to the guide, we need to install SDK after the initial setup
             echo "Installing Pebble SDK components..."
             # Run in offline mode with reduced output
@@ -314,9 +316,13 @@
               echo "Installing core Python packages..."
               cp -r ${pythonEnv}/lib/python2.7/site-packages/* .env/lib/python2.7/site-packages/ 2>/dev/null || echo "Failed to copy packages, continuing anyway"
               
+              # Install specific older versions of packages known to work with Python 2.7
+              echo "Installing compatible package versions..."
+              pip install pyyaml==5.4.1 pillow==6.2.2 pygments==2.5.2 --no-deps -q || echo "Failed to install some packages, continuing anyway"
+              
               # In the dev shell, we can try to install packages directly using pip
               echo "Installing additional Python dependencies..."
-              pip install websocket-client oauth2client pyserial peewee gevent -q || echo "Some pip installs failed - continuing anyway"
+              pip install websocket-client oauth2client pyserial peewee gevent --no-deps -q || echo "Some pip installs failed - continuing anyway"
               
               # Install SDK components
               echo "Installing Pebble SDK components..."
