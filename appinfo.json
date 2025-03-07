@@ -1,25 +1,15 @@
 {
-  "uuid": "133215f0-cf20-4c05-997b-3c9be5f64e58",
-  "shortName": "Pebble Hello",
-  "longName": "Pebble Hello World",
-  "companyName": "Your Company",
+  "uuid": "b4a4e540-2d3b-4d8e-8b8e-5b5e5e5e5e5e",
+  "shortName": "Hello World",
+  "longName": "Hello World",
+  "companyName": "Your Name",
+  "versionCode": 1,
   "versionLabel": "1.0",
-  "sdkVersion": "3",
-  "targetPlatforms": ["aplite", "basalt", "chalk", "diorite"],
   "watchapp": {
     "watchface": false
   },
-  "appKeys": {
-    "TEMPERATURE": 0,
-    "CONDITIONS": 1
-  },
+  "capabilities": [],
   "resources": {
-    "media": [
-      {
-        "type": "png",
-        "name": "BACKGROUND",
-        "file": "images/background.png"
-      }
-    ]
+    "media": []
   }
 } 

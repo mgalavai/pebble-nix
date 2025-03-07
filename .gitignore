@@ -1,0 +1,19 @@
+# Pebble build artifacts
+build/
+.lock-waf*
+.waf*
+
+# Nix artifacts
+result
+result-*
+.direnv/
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db 

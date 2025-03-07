@@ -1,92 +1,18 @@
-name: Build with Pebble SDK
+name: Build Pebble App
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
+on: [push]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      # Install Nix with necessary configuration
-      - name: Install Nix
-        uses: cachix/install-nix-action@v22
+      - uses: actions/checkout@v2
+        # Checks out your repository code
+      - uses: cachix/install-nix-action@v15
         with:
-          nix_path: nixpkgs=channel:nixos-unstable
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-            allow-unsafe-native-code-during-evaluation = true
-            allow-import-from-derivation = true
-
-      - name: Check Nix installation
-        run: |
-          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
-          echo "Nix version: $(nix --version)"
-
-      # Build the Pebble project using the real SDK
-      - name: Build Pebble project
-        env:
-          NIXPKGS_ALLOW_INSECURE: "1"  # For Python 2.7
-          NIXPKGS_ALLOW_BROKEN: "1"    # For potentially broken packages
-          NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM: "1"  # For flexibility
-        run: |
-          echo "Building with Pebble SDK via Nix..."
-          # Add unstable channel for newer packages
-          nix-channel --add https://nixos.org/channels/nixos-unstable nixos
-          nix-channel --update
-          
-          # Create a wrapper script with streamlined output
-          cat > build.sh << 'EOF'
-          #!/bin/bash
-          set -e
-          
-          # Set NIX_BUILD_SHELL to bash
-          export NIX_BUILD_SHELL=/bin/bash
-          
-          # Suppress warning messages from Nix
-          export NIX_CONFIG="warn-dirty = false"
-          
-          # Print nixpkgs version (more concise)
-          echo "Using nixpkgs: $(nix-instantiate --eval -E '(import <nixpkgs> {}).lib.version' 2>/dev/null || echo "unknown")"
-          
-          # Skip the nodejs availability check that produces many warnings
-          
-          # Run build with tracing but filter out some of the verbose output
-          echo "Starting build..."
-          nix build --option warn-dirty false --impure \
-            --option allow-import-from-derivation true \
-            --option allow-unsupported-system true 2>&1 | grep -v "trace: evaluation warning:" || true
-          
-          # Check the result and show build artifacts
-          if [ -L result ]; then
-            echo "Build succeeded! Found artifacts:"
-            find result -type f -name "*.pbw" | while read pbw; do
-              echo "- $pbw ($(du -h "$pbw" | cut -f1))"
-            done
-          else
-            echo "Build failed, no result symlink found"
-            exit 1
-          fi
-          EOF
-          
-          # Make the script executable
-          chmod +x build.sh
-          
-          # Run the wrapper script with proper error handling
-          ./build.sh || {
-            echo "Build failed, checking for error logs..."
-            find . -name "*.log" -exec cat {} \; || echo "No log files found"
-            exit 1
-          }
-
-      # Upload artifacts
-      - name: Upload Pebble app artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: pebble-app
-          path: result/bin/*.pbw
-          if-no-files-found: warn
+          nix_path: nixpkgs=channel:nixpkgs-unstable
+        # Installs Nix on the runner
+      - run: cachix use pebble
+        # Sets up the Pebble binary cache to speed up builds
+      - run: nix-shell --run "pebble build"
+        # Runs the build command in the Nix shell
