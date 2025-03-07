@@ -6,7 +6,8 @@ A full-featured Pebble smartwatch development environment in the cloud. This pro
 - Fixed build issues in GitHub Actions:
   - Replaced nodejs-14_x with generic nodejs package
   - Updated pkgconfig to pkg-config for compatibility with newer Nixpkgs
-  - Implemented custom Python 2.7 virtual environment to bypass dependency conflicts
+  - Implemented bare Python 2.7 setup with zero dependencies to avoid conflicts
+  - Created a custom Python environment from scratch with manual pip installation
   - Used strictly Python 2.7 compatible package versions (pyyaml, pillow, etc.)
   - Updated to Pebble SDK 4.6-rc2 using Rebble-hosted files (more reliable)
   - Fixed SDK hash verification for proper file integrity checking

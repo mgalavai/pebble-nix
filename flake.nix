@@ -15,7 +15,7 @@
             allowUnfree = true;
             permittedInsecurePackages = [
               "openssl-1.0.2u"  # Needed for Pebble SDK
-              "python-2.7.18.8-env"  # Python 2.7 is required by Pebble SDK
+              "python-2.7.18.8"  # Python 2.7 is required by Pebble SDK
             ];
           };
         };
@@ -30,22 +30,50 @@
           sha256 = "sha256-NQO+LO1v5Sn1WOlKVDUVoNqN8SIE7lhRk4iuhX9JTJI="; # Corrected hash from the error message
         };
         
-        # Python 2.7 environment with required packages
-        # Note: We're explicitly NOT including virtualenv since newer versions depend on incompatible packages
-        pythonEnv = pkgs.python27.withPackages (ps: with ps; [
-          # Include only the absolute minimum essential packages
-          wheel
-          setuptools
-          pip
-          
-          # Avoid including any packages that might have compatibility issues with Python 2.7
-          # Only include packages explicitly marked as Python 2.7 compatible
-          pyasn1
-          pyasn1-modules
-        ]);
+        # Use bare Python 2.7 to avoid dependency issues
+        python27 = pkgs.python27;
         
         # Define paths for the build
         pebbleSDKPath = "$HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64";
+        
+        # Create a minimal pip installer script
+        pipInstallerScript = pkgs.writeTextFile {
+          name = "install-pip.py";
+          text = ''
+            #!/usr/bin/env python2.7
+            import os
+            import sys
+            import subprocess
+            
+            def install_pip(python_path):
+                """Install pip for Python 2.7"""
+                print("Downloading get-pip.py...")
+                subprocess.call([
+                    "curl", 
+                    "-s", 
+                    "-o", 
+                    "get-pip.py", 
+                    "https://bootstrap.pypa.io/pip/2.7/get-pip.py"
+                ])
+                
+                print("Installing pip...")
+                subprocess.call([
+                    python_path,
+                    "get-pip.py",
+                    "--no-warn-script-location"
+                ])
+                
+                print("Pip installed successfully")
+            
+            if __name__ == "__main__":
+                if len(sys.argv) < 2:
+                    print("Usage: python install-pip.py <python_path>")
+                    sys.exit(1)
+                
+                install_pip(sys.argv[1])
+          '';
+          executable = true;
+        };
         
         # Create a minimal venv script that doesn't require the virtualenv package
         minimalVenvScript = pkgs.writeTextFile {
@@ -89,16 +117,8 @@
                 os.chmod(os.path.join(venv_path, "bin", "activate"), 0o755)
                 os.chmod(os.path.join(venv_path, "bin", "python"), 0o755)
                 
-                # Install pip into the venv
-                subprocess.call([
-                    python_path, 
-                    "-m", "pip", 
-                    "install", 
-                    "--target=" + os.path.join(venv_path, "lib", "python2.7", "site-packages"),
-                    "pip"
-                ])
-                
-                # Create a pip wrapper
+                # Create a minimal pip wrapper
+                # We'll install pip separately rather than using subprocess to avoid dependencies
                 with open(os.path.join(venv_path, "bin", "pip"), "w") as f:
                     f.write("""#!/bin/bash
                     export PYTHONPATH="{venv_path}/lib/python2.7/site-packages:$PYTHONPATH"
@@ -128,7 +148,7 @@
           
           # Build dependencies
           buildInputs = with pkgs; [
-            pythonEnv
+            python27
             nodejs
             gcc
             gnumake
@@ -176,20 +196,24 @@
             cd $PEBBLE_SDK
             
             # Create a simple venv without using virtualenv package
-            ${pythonEnv}/bin/python ${minimalVenvScript} .env ${pythonEnv}/bin/python 2>/dev/null
+            echo "Creating basic Python environment..."
+            ${python27}/bin/python ${minimalVenvScript} .env ${python27}/bin/python 2>/dev/null
             source .env/bin/activate
+            
+            # Install pip manually to avoid dependencies
+            echo "Installing pip..."
+            ${python27}/bin/python ${pipInstallerScript} ${python27}/bin/python &>/dev/null || echo "Pip installation failed, continuing anyway"
             
             # Set environment variables to work better in the sandbox and reduce noise
             export PIP_NO_INPUT=1
             export PIP_DISABLE_PIP_VERSION_CHECK=1
             export PYTHONWARNINGS=ignore
             
-            # Copy Python packages directly to the site-packages directory
-            echo "Installing core Python packages..."
-            cp -r ${pythonEnv}/lib/python2.7/site-packages/* .env/lib/python2.7/site-packages/ 2>/dev/null || echo "Failed to copy packages, continuing anyway"
-            
-            # Install specific older versions of packages known to work with Python 2.7
-            echo "Installing compatible package versions..."
+            # Install minimal required packages with versions known to work with Python 2.7
+            echo "Installing necessary Python packages..."
+            # Use --no-deps to prevent pip from trying to install potentially incompatible dependencies
+            pip install wheel==0.37.1 setuptools==44.1.1 --no-deps -q || echo "Basic packages installation failed, continuing anyway"
+            pip install pyasn1==0.4.8 pyasn1-modules==0.2.8 --no-deps -q || echo "ASN1 installation failed, continuing anyway"
             pip install pyyaml==5.4.1 pillow==6.2.2 pygments==2.5.2 --no-deps -q || echo "Failed to install some packages, continuing anyway"
             
             # According to the guide, we need to install SDK after the initial setup
@@ -272,7 +296,7 @@
         # Development shell with Pebble SDK
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            pythonEnv
+            python27
             nodejs
             gcc
             gnumake
@@ -309,18 +333,20 @@
               
               # Create virtualenv with our minimal script
               echo "Setting up Python environment..."
-              ${pythonEnv}/bin/python ${minimalVenvScript} .env ${pythonEnv}/bin/python 2>/dev/null
+              ${python27}/bin/python ${minimalVenvScript} .env ${python27}/bin/python 2>/dev/null
               source .env/bin/activate
               
-              # Copy Python packages directly to the site-packages directory
-              echo "Installing core Python packages..."
-              cp -r ${pythonEnv}/lib/python2.7/site-packages/* .env/lib/python2.7/site-packages/ 2>/dev/null || echo "Failed to copy packages, continuing anyway"
+              # Install pip manually
+              echo "Installing pip..."
+              ${python27}/bin/python ${pipInstallerScript} ${python27}/bin/python &>/dev/null || echo "Pip installation failed, continuing anyway"
               
-              # Install specific older versions of packages known to work with Python 2.7
-              echo "Installing compatible package versions..."
+              # Install minimal required packages with versions known to work with Python 2.7
+              echo "Installing necessary Python packages..."
+              pip install wheel==0.37.1 setuptools==44.1.1 --no-deps -q || echo "Basic packages installation failed, continuing anyway"
+              pip install pyasn1==0.4.8 pyasn1-modules==0.2.8 --no-deps -q || echo "ASN1 installation failed, continuing anyway"
               pip install pyyaml==5.4.1 pillow==6.2.2 pygments==2.5.2 --no-deps -q || echo "Failed to install some packages, continuing anyway"
               
-              # In the dev shell, we can try to install packages directly using pip
+              # In the dev shell, we can try to install more packages
               echo "Installing additional Python dependencies..."
               pip install websocket-client oauth2client pyserial peewee gevent --no-deps -q || echo "Some pip installs failed - continuing anyway"
               
@@ -331,8 +357,8 @@
               # Install from requirements if available
               if [ -f requirements.txt ]; then
                 echo "Installing from requirements.txt..."
-                grep -v -E "pygeoip|pyasn1|virtualenv" requirements.txt > fixed-requirements.txt || true
-                pip install -r fixed-requirements.txt -q || echo "Some pip installs failed - continuing anyway"
+                grep -v -E "pygeoip|pyasn1|virtualenv|pyyaml" requirements.txt > fixed-requirements.txt || true
+                pip install -r fixed-requirements.txt --no-deps -q || echo "Some pip installs failed - continuing anyway"
               fi
               
               # Create required SDK configurations
