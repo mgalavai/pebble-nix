@@ -12,7 +12,5 @@ jobs:
         with:
           nix_path: nixpkgs=channel:nixpkgs-unstable
         # Installs Nix on the runner
-      - run: cachix use pebble
-        # Sets up the Pebble binary cache to speed up builds
       - run: nix-shell --run "pebble build"
         # Runs the build command in the Nix shell
