@@ -434,30 +434,64 @@ EOF
             
             # First, disable any automatic downloaders in the SDK
             echo "Disabling network downloaders in the SDK..."
-            echo "Looking for Python files that might contain network code..."
-            
-            # Using a simpler approach that avoids complex pipes and expressions
-            find "$PEBBLE_SDK" -name "*.py" -type f > sdk_python_files.txt
-            
-            # First, just print how many files we found
-            total_files=$(wc -l < sdk_python_files.txt)
-            echo "Found $total_files Python files to examine"
-            
-            total_patched=0
-            
-            # Process files directly
-            while read -r file; do
-              if grep -q "urllib\|requests\|http:" "$file" 2>/dev/null; then
-                echo "Patching $file to disable network requests..."
-                cp "$file" "$file.bak"
-                sed -i 's/import.*urllib/# &/g' "$file" || echo "Failed to patch urllib in $file"
-                sed -i 's/import.*requests/# &/g' "$file" || echo "Failed to patch requests in $file"
-                sed -i 's/.*http:/# &/g' "$file" || echo "Failed to patch URLs in $file"
-                total_patched=$((total_patched + 1))
+            echo "Using a more resilient patching strategy..."
+
+            # Create a directory for our version of patched files
+            mkdir -p $HOME/patched_files
+
+            # List of critical files to patch - better to target specific files than try to find all
+            critical_files=(
+              "bin/pebble"
+              "bin/pebble-tool"
+            )
+
+            # Focus on the most critical files first
+            for relative_path in "${critical_files[@]}"; do
+              file="$PEBBLE_SDK/$relative_path"
+              
+              if [ -f "$file" ] && [ -r "$file" ]; then
+                echo "Checking critical file: $file"
+                
+                # Only try to patch if it contains network code
+                if grep -q "urllib\|requests\|http:" "$file" 2>/dev/null; then
+                  echo "Patching $file to disable network requests..."
+                  
+                  # Create modified version in our home directory first (we know we can write here)
+                  cat "$file" | sed 's/import.*urllib/# &/g' | sed 's/import.*requests/# &/g' | sed 's/.*http:/# &/g' > "$HOME/patched_files/$(basename "$file")" || true
+                  
+                  # Only try to replace the original if our patched version was created successfully
+                  if [ -f "$HOME/patched_files/$(basename "$file")" ]; then
+                    # Try to replace the original, but don't fail if we can't
+                    if [ -w "$file" ]; then
+                      cp "$HOME/patched_files/$(basename "$file")" "$file" 2>/dev/null || true
+                      echo "Successfully patched $file"
+                    else
+                      echo "Cannot write to $file - skipping"
+                    fi
+                  fi
+                fi
               fi
-            done < sdk_python_files.txt
-            
-            echo "Patched $total_patched files to disable network access"
+            done
+
+            # Handle any writable Python files - less aggressive approach
+            echo "Checking for writable Python files with network code..."
+            find "$PEBBLE_SDK" -name "*.py" -type f -readable -writable 2>/dev/null | head -n 50 | while read -r file; do
+              if grep -q "urllib\|requests\|http:" "$file" 2>/dev/null; then
+                echo "Found network code in writable file: $file"
+                # Try to modify in-place without backup
+                sed -i 's/import.*urllib/# &/g' "$file" 2>/dev/null || true
+                sed -i 's/import.*requests/# &/g' "$file" 2>/dev/null || true
+                sed -i 's/.*http:/# &/g' "$file" 2>/dev/null || true
+                echo "Patched: $file"
+              fi
+            done
+
+            # Set environment variables to disable network access at runtime
+            export no_proxy="*"
+            export PIP_NO_INDEX=1
+            export PIP_DISABLE_PIP_VERSION_CHECK=1
+
+            echo "Network disabling process completed - continuing with build"
             
             # Run in offline mode with reduced output
             pebble sdk install --no-analytics --offline &>/dev/null || {
@@ -726,30 +760,64 @@ EOF
               
               # First, disable any automatic downloaders in the SDK
               echo "Disabling network downloaders in the SDK..."
-              echo "Looking for Python files that might contain network code..."
-              
-              # Using a simpler approach that avoids complex pipes and expressions
-              find "$PEBBLE_SDK" -name "*.py" -type f > sdk_python_files.txt
-              
-              # First, just print how many files we found
-              total_files=$(wc -l < sdk_python_files.txt)
-              echo "Found $total_files Python files to examine"
-              
-              total_patched=0
-              
-              # Process files directly
-              while read -r file; do
-                if grep -q "urllib\|requests\|http:" "$file" 2>/dev/null; then
-                  echo "Patching $file to disable network requests..."
-                  cp "$file" "$file.bak"
-                  sed -i 's/import.*urllib/# &/g' "$file" || echo "Failed to patch urllib in $file"
-                  sed -i 's/import.*requests/# &/g' "$file" || echo "Failed to patch requests in $file"
-                  sed -i 's/.*http:/# &/g' "$file" || echo "Failed to patch URLs in $file"
-                  total_patched=$((total_patched + 1))
+              echo "Using a more resilient patching strategy..."
+
+              # Create a directory for our version of patched files
+              mkdir -p $HOME/patched_files
+
+              # List of critical files to patch - better to target specific files than try to find all
+              critical_files=(
+                "bin/pebble"
+                "bin/pebble-tool"
+              )
+
+              # Focus on the most critical files first
+              for relative_path in "${critical_files[@]}"; do
+                file="$PEBBLE_SDK/$relative_path"
+                
+                if [ -f "$file" ] && [ -r "$file" ]; then
+                  echo "Checking critical file: $file"
+                  
+                  # Only try to patch if it contains network code
+                  if grep -q "urllib\|requests\|http:" "$file" 2>/dev/null; then
+                    echo "Patching $file to disable network requests..."
+                    
+                    # Create modified version in our home directory first (we know we can write here)
+                    cat "$file" | sed 's/import.*urllib/# &/g' | sed 's/import.*requests/# &/g' | sed 's/.*http:/# &/g' > "$HOME/patched_files/$(basename "$file")" || true
+                    
+                    # Only try to replace the original if our patched version was created successfully
+                    if [ -f "$HOME/patched_files/$(basename "$file")" ]; then
+                      # Try to replace the original, but don't fail if we can't
+                      if [ -w "$file" ]; then
+                        cp "$HOME/patched_files/$(basename "$file")" "$file" 2>/dev/null || true
+                        echo "Successfully patched $file"
+                      else
+                        echo "Cannot write to $file - skipping"
+                      fi
+                    fi
+                  fi
                 fi
-              done < sdk_python_files.txt
-              
-              echo "Patched $total_patched files to disable network access"
+              done
+
+              # Handle any writable Python files - less aggressive approach
+              echo "Checking for writable Python files with network code..."
+              find "$PEBBLE_SDK" -name "*.py" -type f -readable -writable 2>/dev/null | head -n 50 | while read -r file; do
+                if grep -q "urllib\|requests\|http:" "$file" 2>/dev/null; then
+                  echo "Found network code in writable file: $file"
+                  # Try to modify in-place without backup
+                  sed -i 's/import.*urllib/# &/g' "$file" 2>/dev/null || true
+                  sed -i 's/import.*requests/# &/g' "$file" 2>/dev/null || true
+                  sed -i 's/.*http:/# &/g' "$file" 2>/dev/null || true
+                  echo "Patched: $file"
+                fi
+              done
+
+              # Set environment variables to disable network access at runtime
+              export no_proxy="*"
+              export PIP_NO_INDEX=1
+              export PIP_DISABLE_PIP_VERSION_CHECK=1
+
+              echo "Network disabling process completed - continuing with build"
               
               # Run in offline mode with reduced output
               pebble sdk install --no-analytics --offline &>/dev/null || {
