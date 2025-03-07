@@ -21,6 +21,15 @@ jobs:
           echo "PATH: $PATH"
           lix --version
 
+      - name: Locate Lix executable
+        run: |
+          echo "Checking common location:"
+          ls -l /home/runner/.nix-profile/bin/lix || echo "Not found in .nix-profile"
+          echo "Searching more broadly:"
+          find /home/runner -type f -name lix 2>/dev/null || echo "No lix executable found"
+          echo "Searching in /nix:"
+          find /nix -type f -name lix 2>/dev/null || echo "No lix executable found in /nix"
+
       - name: Show Lix version
         run: lix --version
 
