@@ -15,8 +15,11 @@ jobs:
       - name: Install Lix
         uses: samueldr/lix-gha-installer-action@v1
 
-      - name: Setup Nix environment
-        run: . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+      - name: Setup Nix environment for Lix and check version
+        run: |
+          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+          echo "PATH: $PATH"
+          lix --version
 
       - name: Show Lix version
         run: lix --version
