@@ -60,28 +60,18 @@ jobs:
       # you might run:
       - name: Build project
         run: |
-          # Display available Lix commands
-          echo "Available Lix commands:"
-          lix help
+          # Use the simpler flake-based build for Pebble SDK hello world app
+          echo "Building with 'lix build .' command..."
+          lix build . || echo "lix build failed"
           
-          # Setup the project with Lix (common Lix commands)
-          echo "Setting up the project with Lix..."
-          # Install dependencies from haxelib.json or package.json
-          lix download || echo "Lix download failed"
-          # Resolve dependencies
-          lix install || echo "Lix install failed"
-          # Show installed libraries
-          lix ls || echo "Lix ls failed"
+          # Verify the build result
+          echo "Checking build result:"
+          ls -l result || echo "No result directory found"
           
-          # Run build using Haxe (typical approach with Lix)
-          echo "Building with Haxe..."
-          haxe build.hxml || echo "Haxe build failed"
-          
-          # If the project has a custom build script, try that too
-          if [ -f "build.sh" ]; then
-            echo "Running build.sh script..."
-            chmod +x build.sh
-            ./build.sh || echo "build.sh failed"
+          # If build succeeded, show contents to verify
+          if [ -L "result" ]; then
+            echo "Build succeeded! Result directory contents:"
+            ls -la result/
           fi
 
       # Optional: Upload the build artifact.
