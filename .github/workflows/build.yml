@@ -32,9 +32,9 @@ jobs:
         run: which lix || echo "lix not found"
 
         - name: Search for lix binary
-      run: |
-        echo "Searching for lix binary across the system..."
-        find / -type f -name lix 2>/dev/null
+        run: |
+          echo "Searching for lix binary across the system..."
+          find / -type f -name lix 2>/dev/null
 
       - name: Show Lix version
         run: lix --version
