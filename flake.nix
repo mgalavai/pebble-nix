@@ -52,7 +52,7 @@
             gnumake
             libffi
             libusb1
-            pkgconfig
+            pkg-config
             python27Packages.virtualenv
             bash
             curl
@@ -204,7 +204,7 @@
             gnumake
             libffi
             libusb1
-            pkgconfig
+            pkg-config
             python27Packages.virtualenv
             bash
             curl
