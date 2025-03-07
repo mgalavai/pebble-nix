@@ -18,8 +18,7 @@ jobs:
       - name: Install Pebble SDK
         run: echo "y" | nix-shell --run "pebble sdk install latest"
       - name: Build Pebble App
-        run: |
-          nix-shell --run "python /home/runner/.pebble-sdk/SDKs/current/sdk-core/pebble/waf configure build --platform=basalt"
+        run: nix-shell --run "python /home/runner/.pebble-sdk/SDKs/current/sdk-core/pebble/waf configure build --platform=basalt"
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
