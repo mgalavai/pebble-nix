@@ -1,0 +1,30 @@
+{
+  "name": "pebble-hello-world",
+  "version": "1.0.0",
+  "description": "A simple Hello World app for Pebble",
+  "main": "src/main.c",
+  "keywords": [
+    "pebble",
+    "pebblejs"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "pebble": {
+    "displayName": "Hello World",
+    "uuid": "133215f0-cf20-4c05-997b-3c9be5f64e58",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "aplite",
+      "basalt",
+      "chalk",
+      "diorite"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "resources": {
+      "media": []
+    }
+  }
+} 
