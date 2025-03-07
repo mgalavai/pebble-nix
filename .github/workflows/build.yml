@@ -21,6 +21,13 @@ jobs:
           echo "PATH: $PATH"
           lix --version
 
+      - name: List installed binaries
+        run: |
+          echo "Contents of /nix/var/nix/profiles/default/bin:"
+          ls -l /nix/var/nix/profiles/default/bin
+          echo "Contents of /home/runner/.nix-profile/bin:"
+          ls -l /home/runner/.nix-profile/bin
+
       - name: Check for lix in PATH
         run: which lix || echo "lix not found"
 
