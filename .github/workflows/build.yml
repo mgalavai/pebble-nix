@@ -30,14 +30,15 @@ jobs:
 
       # Build the Pebble project using the real SDK
       - name: Build Pebble project
+        env:
+          NIXPKGS_ALLOW_INSECURE: "1"  # For Python 2.7
+          NIXPKGS_ALLOW_BROKEN: "1"    # For potentially broken packages
+          NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM: "1"  # For flexibility
         run: |
           echo "Building with Pebble SDK via Nix..."
           # Add unstable channel for newer packages
           nix-channel --add https://nixos.org/channels/nixos-unstable nixos
           nix-channel --update
-          
-          # Set environment to allow insecure packages (Python 2.7)
-          export NIXPKGS_ALLOW_INSECURE=1
           
           # Create a wrapper script to handle additional environment settings
           cat > build.sh << 'EOF'
@@ -47,13 +48,23 @@ jobs:
           # Set NIX_BUILD_SHELL to bash to avoid any potential shell issues
           export NIX_BUILD_SHELL=/bin/bash
           
-          # Allow specific old and insecure packages for compatibility
-          export NIXPKGS_ALLOW_INSECURE=1
-          export NIXPKGS_ALLOW_BROKEN=1  # For Python 2.7 packages that might be marked as broken
-          export NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM=1  # For more flexibility
+          # Print debugging info for Nix
+          echo "Nix system information:"
+          nix-info -m || echo "nix-info not available"
           
-          # Build with extra safety flags
-          nix build --show-trace --verbose --impure --option allow-import-from-derivation true --option allow-unsupported-system true
+          # Print nixpkgs version
+          echo "Using nixpkgs version:"
+          nix-instantiate --eval -E '(import <nixpkgs> {}).lib.version' || echo "Could not determine nixpkgs version"
+          
+          # Check if nodejs is available
+          echo "Checking nodejs availability:"
+          nix-env -qa nodejs || echo "Could not query nodejs package"
+          
+          # Build with extra safety flags and show extensive tracing
+          echo "Starting build with tracing enabled..."
+          nix build --show-trace --verbose --impure \
+            --option allow-import-from-derivation true \
+            --option allow-unsupported-system true
           
           # Check the result and show build artifacts
           if [ -L result ]; then

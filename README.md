@@ -2,6 +2,11 @@
 
 A full-featured Pebble smartwatch development environment in the cloud. This project makes it possible to develop Pebble apps without needing to install the SDK locally.
 
+## Latest Update
+- Fixed build issues in GitHub Actions by replacing nodejs-14_x with generic nodejs package
+- Added additional debug information to the build process
+- Enhanced error handling in the GitHub Actions workflow
+
 ## Features
 
 - **Cloud-Based Compilation** - Build Pebble apps in GitHub Actions

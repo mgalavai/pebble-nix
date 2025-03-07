@@ -47,7 +47,7 @@
           # Build dependencies
           buildInputs = with pkgs; [
             pythonEnv
-            nodejs-14_x
+            nodejs
             gcc
             gnumake
             libffi
@@ -199,7 +199,7 @@
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             pythonEnv
-            nodejs-14_x
+            nodejs
             gcc
             gnumake
             libffi
