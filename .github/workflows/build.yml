@@ -21,14 +21,8 @@ jobs:
           echo "PATH: $PATH"
           lix --version
 
-      - name: Locate Lix binary
-        run: |
-          echo "Checking /nix/var/nix/profiles/default/bin/lix"
-          ls -l /nix/var/nix/profiles/default/bin/lix || true
-          echo "Checking /home/runner/.nix-profile/bin/lix"
-          ls -l /home/runner/.nix-profile/bin/lix || true
-          echo "Searching entire system for lix"
-          find / -type f -name lix 2>/dev/null || true
+      - name: Check for lix in PATH
+        run: which lix || echo "lix not found"
 
       - name: Show Lix version
         run: lix --version
