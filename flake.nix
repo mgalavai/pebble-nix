@@ -33,7 +33,7 @@
         # Pre-fetch pip installer to avoid network dependency
         pipInstallerPy = pkgs.fetchurl {
           url = "https://bootstrap.pypa.io/pip/2.7/get-pip.py";
-          sha256 = "sha256-TyhJ7nJRPeZVBmqQGM0pBYR9hrBkzM8FwEYnSQOXBqM="; # Hash for get-pip.py for Python 2.7
+          sha256 = "sha256-QO4H6sZnS41g/OK7q8FIzw4vFAjBZ2g/EQ/WCLjW9BY="; # Updated hash from the error message
         };
         
         # Use bare Python 2.7 to avoid dependency issues
