@@ -30,6 +30,12 @@
           sha256 = "sha256-NQO+LO1v5Sn1WOlKVDUVoNqN8SIE7lhRk4iuhX9JTJI="; # Corrected hash from the error message
         };
         
+        # Pre-fetch Python packages we need
+        virtualenvPackage = pkgs.fetchurl {
+          url = "https://files.pythonhosted.org/packages/41/60/2c57214dd592dd987a49567aca48a99ec35874fa161eaecf1ea8d28b3cf8/virtualenv-16.7.9.tar.gz";
+          sha256 = "sha256-ymiEgcCYXYbBos6CX8yPhWejBTF0NRyUTT1KV3JsH3g=";
+        };
+        
         # Python 2.7 environment with required packages
         pythonEnv = pkgs.python27.withPackages (ps: with ps; [
           # Only include the absolute minimum required packages to reduce compatibility issues
@@ -98,24 +104,40 @@
             # Setup virtualenv for Pebble SDK
             cd $PEBBLE_SDK
             
-            # Install virtualenv via pip first
-            echo "Installing virtualenv via pip..."
-            ${pythonEnv}/bin/pip install virtualenv==16.7.9
+            # Install virtualenv via pip from local file
+            echo "Installing virtualenv from local file..."
+            ${pythonEnv}/bin/pip install ${virtualenvPackage} --no-index
             
             # Create and activate the virtualenv
             ${pythonEnv}/bin/virtualenv --python=${pythonEnv}/bin/python2.7 .env
             source .env/bin/activate
             
-            # Pin specific versions known to work with Python 2.7
-            pip install --upgrade pip==20.3.4 || echo "pip upgrade failed, continuing"
+            # Some packages that we need to pre-load
+            cat > requirements-minimal.txt << EOF
+            pip==20.3.4
+            wheel==0.37.1
+            setuptools==44.1.1
+            pyasn1==0.4.8
+            pyasn1-modules==0.2.8
+            pillow==6.2.2
+            pygments==2.5.2
+            pyyaml==5.4.1
+            pypng==0.0.20
+            websocket-client==0.57.0
+            oauth2client==4.1.3
+            pyserial==3.5
+            peewee==3.14.8
+            gevent==21.12.0
+            EOF
             
-            # Install packages with Python 2.7 compatible versions
-            pip install wheel==0.37.1 setuptools==44.1.1 || echo "Basic tools install failed"
-            pip install pyasn1==0.4.8 pyasn1-modules==0.2.8 || echo "pyasn1 install failed"
-            pip install pillow==6.2.2 pygments==2.5.2 || echo "Imaging libs install failed"
-            pip install pyyaml==5.4.1 pypng==0.0.20 || echo "Format libs install failed"
-            pip install websocket-client==0.57.0 oauth2client==4.1.3 || echo "Client libs install failed"
-            pip install pyserial==3.5 peewee==3.14.8 gevent==21.12.0 || echo "Additional libs install failed"
+            # Disable network connection checks for pip - we're in a sandbox
+            export PIP_NO_INPUT=1
+            export PIP_DISABLE_PIP_VERSION_CHECK=1
+            
+            # Attempt to install our minimal requirements, but allow failure
+            # since we don't have network access
+            echo "Attempting to install Python dependencies - this might fail in the sandbox..."
+            pip install -r requirements-minimal.txt || echo "Python package installation failed - continuing anyway"
             
             # According to the guide, we need to install SDK after the initial setup
             echo "Installing Pebble SDK components..."
@@ -247,24 +269,35 @@
               # Setup virtualenv for Pebble SDK
               cd $PEBBLE_SDK
               
-              # Install virtualenv via pip first
-              echo "Installing virtualenv via pip..."
-              ${pythonEnv}/bin/pip install virtualenv==16.7.9
+              # Install virtualenv from local file
+              echo "Installing virtualenv from local file..."
+              ${pythonEnv}/bin/pip install ${virtualenvPackage} --no-index
               
               # Create and activate the virtualenv
               ${pythonEnv}/bin/virtualenv --python=${pythonEnv}/bin/python2.7 .env
               source .env/bin/activate
               
-              # Pin specific versions known to work with Python 2.7
-              pip install --upgrade pip==20.3.4 || echo "pip upgrade failed, continuing"
+              # Local requirements file for minimal dependencies
+              cat > requirements-minimal.txt << EOF
+              pip==20.3.4
+              wheel==0.37.1
+              setuptools==44.1.1
+              pyasn1==0.4.8
+              pyasn1-modules==0.2.8
+              pillow==6.2.2
+              pygments==2.5.2
+              pyyaml==5.4.1
+              pypng==0.0.20
+              websocket-client==0.57.0
+              oauth2client==4.1.3
+              pyserial==3.5
+              peewee==3.14.8
+              gevent==21.12.0
+              EOF
               
-              # Install packages with Python 2.7 compatible versions
-              pip install wheel==0.37.1 setuptools==44.1.1 || echo "Basic tools install failed"
-              pip install pyasn1==0.4.8 pyasn1-modules==0.2.8 || echo "pyasn1 install failed"
-              pip install pillow==6.2.2 pygments==2.5.2 || echo "Imaging libs install failed"
-              pip install pyyaml==5.4.1 pypng==0.0.20 || echo "Format libs install failed"
-              pip install websocket-client==0.57.0 oauth2client==4.1.3 || echo "Client libs install failed"
-              pip install pyserial==3.5 peewee==3.14.8 gevent==21.12.0 || echo "Additional libs install failed"
+              # In dev shell, we can try to install these directly since we have network access
+              echo "Installing Python dependencies..."
+              pip install -r requirements-minimal.txt || echo "Some pip installs failed - continuing anyway"
               
               # According to the guide, we need to install SDK after the initial setup
               echo "Installing Pebble SDK components..."

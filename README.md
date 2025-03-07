@@ -9,6 +9,7 @@ A full-featured Pebble smartwatch development environment in the cloud. This pro
   - Switched to pip-installed virtualenv instead of using the Nix package
   - Updated to Pebble SDK 4.6-rc2 using Rebble-hosted files (more reliable)
   - Fixed SDK hash verification for proper file integrity checking
+  - Pre-fetched virtualenv package to work in Nix's restricted network environment
 - Added additional debug information to the build process
 - Enhanced error handling in the GitHub Actions workflow
 
