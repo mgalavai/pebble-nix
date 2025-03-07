@@ -7,7 +7,8 @@ A full-featured Pebble smartwatch development environment in the cloud. This pro
   - Replaced nodejs-14_x with generic nodejs package
   - Updated pkgconfig to pkg-config for compatibility with newer Nixpkgs
   - Implemented bare Python 2.7 setup with zero dependencies to avoid conflicts
-  - Created a custom Python environment from scratch with manual pip installation
+  - Created a direct pip installation without using pip or virtualenv packages
+  - Used local directory-based HOME to avoid TMPDIR permission issues
   - Used strictly Python 2.7 compatible package versions (pyyaml, pillow, etc.)
   - Fixed pip command not found errors with absolute paths to pip executable
   - Added TMPDIR permission fallback mechanism for restricted environments

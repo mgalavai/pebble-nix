@@ -170,13 +170,10 @@
           setupPhase = ''
             # Create basic structure for Pebble
             echo "Setting up build environment..."
-            export HOME=$TMP_HOME
-            mkdir -p $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64 || {
-              echo "Error: Failed to create directories in $TMPDIR"
-              # Fallback to a different location if TMPDIR fails
-              export HOME="$PWD/.pebble-home"
-              mkdir -p $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
-            }
+            
+            # Create a more reliable home directory that's not in TMPDIR
+            export HOME="$PWD/.pebble-home"
+            mkdir -p $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
             
             # Create resources directory if it doesn't exist
             mkdir -p resources/images
@@ -202,27 +199,48 @@
             
             # Create a simple venv without using virtualenv package
             echo "Creating basic Python environment..."
-            ${python27}/bin/python ${minimalVenvScript} .env ${python27}/bin/python 2>/dev/null
-            source .env/bin/activate
+            mkdir -p .env/bin
+            mkdir -p .env/lib/python2.7/site-packages
             
-            # Install pip manually to avoid dependencies
-            echo "Installing pip..."
-            ${python27}/bin/python ${pipInstallerScript} ${python27}/bin/python &>/dev/null || echo "Pip installation failed, continuing anyway"
+            # Create a direct Python wrapper
+            cat > .env/bin/python << EOF
+#!/bin/bash
+export PYTHONPATH="$PEBBLE_SDK/.env/lib/python2.7/site-packages:\$PYTHONPATH"
+exec "${python27}/bin/python" "\$@"
+EOF
+            chmod +x .env/bin/python
             
-            # Make sure pip is directly accessible
-            export PATH="$PEBBLE_SDK/.env/bin:$PATH"
+            # Download and install pip directly
+            echo "Installing pip directly..."
+            curl -s -o get-pip.py https://bootstrap.pypa.io/pip/2.7/get-pip.py
+            .env/bin/python get-pip.py --target=.env/lib/python2.7/site-packages --no-warn-script-location
+            
+            # Create a direct pip wrapper
+            cat > .env/bin/pip << EOF
+#!/bin/bash
+export PYTHONPATH="$PEBBLE_SDK/.env/lib/python2.7/site-packages:\$PYTHONPATH"
+exec "${python27}/bin/python" -m pip "\$@"
+EOF
+            chmod +x .env/bin/pip
+            
+            # Verify pip is working
+            echo "Testing pip installation..."
+            .env/bin/pip --version || echo "Pip installation verification failed, but continuing anyway"
             
             # Set environment variables to work better in the sandbox and reduce noise
             export PIP_NO_INPUT=1
             export PIP_DISABLE_PIP_VERSION_CHECK=1
             export PYTHONWARNINGS=ignore
             
+            # Make pip available in PATH
+            export PATH="$PEBBLE_SDK/.env/bin:$PATH"
+            
             # Install minimal required packages with versions known to work with Python 2.7
             echo "Installing necessary Python packages..."
             # Use --no-deps to prevent pip from trying to install potentially incompatible dependencies
-            $PEBBLE_SDK/.env/bin/pip install wheel==0.37.1 setuptools==44.1.1 --no-deps -q || echo "Basic packages installation failed, continuing anyway"
-            $PEBBLE_SDK/.env/bin/pip install pyasn1==0.4.8 pyasn1-modules==0.2.8 --no-deps -q || echo "ASN1 installation failed, continuing anyway"
-            $PEBBLE_SDK/.env/bin/pip install pyyaml==5.4.1 pillow==6.2.2 pygments==2.5.2 --no-deps -q || echo "Failed to install some packages, continuing anyway"
+            .env/bin/pip install wheel==0.37.1 setuptools==44.1.1 --no-deps -q --target=.env/lib/python2.7/site-packages || echo "Basic packages installation failed, continuing anyway"
+            .env/bin/pip install pyasn1==0.4.8 pyasn1-modules==0.2.8 --no-deps -q --target=.env/lib/python2.7/site-packages || echo "ASN1 installation failed, continuing anyway"
+            .env/bin/pip install pyyaml==5.4.1 pillow==6.2.2 pygments==2.5.2 --no-deps -q --target=.env/lib/python2.7/site-packages || echo "Failed to install some packages, continuing anyway"
             
             # According to the guide, we need to install SDK after the initial setup
             echo "Installing Pebble SDK components..."
@@ -239,21 +257,23 @@
             
             # Create required SDK configurations - make sure the directory exists
             mkdir -p $HOME/.pebble-sdk || true
-            echo "1" > $HOME/.pebble-sdk/NO_TRACKING
+            touch $HOME/.pebble-sdk/NO_TRACKING || true
+            echo "1" > $HOME/.pebble-sdk/NO_TRACKING || echo "Failed to create NO_TRACKING file, continuing anyway"
           '';
           
           buildPhase = ''
             echo "Building Pebble app..."
-            export HOME="$TMP_HOME"
-            # If TMP_HOME doesn't exist, use the fallback
-            if [ ! -d "$HOME" ]; then
-              export HOME="$PWD/.pebble-home"
-            fi
+            
+            # Use the same home directory for consistency
+            export HOME="$PWD/.pebble-home"
             export PEBBLE_SDK=$HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
             export PATH=$PEBBLE_SDK/bin:$PEBBLE_SDK/.env/bin:$PATH
             
-            # Activate Python environment
-            source $PEBBLE_SDK/.env/bin/activate
+            # Check that our Python environment exists
+            if [ ! -d "$PEBBLE_SDK/.env" ]; then
+              echo "ERROR: Python environment not found at $PEBBLE_SDK/.env"
+              exit 1
+            fi
             
             # Skip version check to reduce output
             echo "Using Pebble SDK $(pebble --version 2>/dev/null || echo "unknown")"
@@ -272,12 +292,9 @@
           
           installPhase = ''
             echo "Installing Pebble app..."
-            # Make sure we're using a valid HOME
-            if [ ! -d "$TMP_HOME" ]; then
-              export HOME="$PWD/.pebble-home"
-            else
-              export HOME="$TMP_HOME"
-            fi
+            
+            # Use the same home directory for consistency
+            export HOME="$PWD/.pebble-home"
             mkdir -p $out/{bin,src}
             
             # Copy the build artifact with better path handling
@@ -330,7 +347,7 @@
             echo "Setting up Pebble development environment..."
             
             # Set up temporary HOME to avoid modifying real HOME
-            export TMP_HOME=$(mktemp -d)
+            export TMP_HOME=$(mktemp -d || echo "/tmp/pebble-dev-$$")
             export OLD_HOME=$HOME
             export HOME=$TMP_HOME
             
@@ -346,30 +363,56 @@
               export PEBBLE_SDK=$HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
               export PATH=$PEBBLE_SDK/bin:$PATH
               
-              # Setup Python environment using our custom method
+              # Setup Python environment using our direct approach
               cd $PEBBLE_SDK
               
-              # Create virtualenv with our minimal script
+              # Create a simple Python environment
               echo "Setting up Python environment..."
-              ${python27}/bin/python ${minimalVenvScript} .env ${python27}/bin/python 2>/dev/null
-              source .env/bin/activate
+              mkdir -p .env/bin
+              mkdir -p .env/lib/python2.7/site-packages
               
-              # Install pip manually
-              echo "Installing pip..."
-              ${python27}/bin/python ${pipInstallerScript} ${python27}/bin/python &>/dev/null || echo "Pip installation failed, continuing anyway"
+              # Create a direct Python wrapper
+              cat > .env/bin/python << EOF
+#!/bin/bash
+export PYTHONPATH="$PEBBLE_SDK/.env/lib/python2.7/site-packages:\$PYTHONPATH"
+exec "${python27}/bin/python" "\$@"
+EOF
+              chmod +x .env/bin/python
               
-              # Make sure pip is directly accessible
+              # Download and install pip directly
+              echo "Installing pip directly..."
+              curl -s -o get-pip.py https://bootstrap.pypa.io/pip/2.7/get-pip.py
+              .env/bin/python get-pip.py --target=.env/lib/python2.7/site-packages --no-warn-script-location
+              
+              # Create a direct pip wrapper
+              cat > .env/bin/pip << EOF
+#!/bin/bash
+export PYTHONPATH="$PEBBLE_SDK/.env/lib/python2.7/site-packages:\$PYTHONPATH"
+exec "${python27}/bin/python" -m pip "\$@"
+EOF
+              chmod +x .env/bin/pip
+              
+              # Verify pip is working
+              echo "Testing pip installation..."
+              .env/bin/pip --version || echo "Pip installation verification failed, but continuing anyway"
+              
+              # Set environment variables
+              export PIP_NO_INPUT=1
+              export PIP_DISABLE_PIP_VERSION_CHECK=1
+              export PYTHONWARNINGS=ignore
+              
+              # Make pip available in PATH
               export PATH="$PEBBLE_SDK/.env/bin:$PATH"
               
               # Install minimal required packages with versions known to work with Python 2.7
               echo "Installing necessary Python packages..."
-              $PEBBLE_SDK/.env/bin/pip install wheel==0.37.1 setuptools==44.1.1 --no-deps -q || echo "Basic packages installation failed, continuing anyway"
-              $PEBBLE_SDK/.env/bin/pip install pyasn1==0.4.8 pyasn1-modules==0.2.8 --no-deps -q || echo "ASN1 installation failed, continuing anyway"
-              $PEBBLE_SDK/.env/bin/pip install pyyaml==5.4.1 pillow==6.2.2 pygments==2.5.2 --no-deps -q || echo "Failed to install some packages, continuing anyway"
+              .env/bin/pip install wheel==0.37.1 setuptools==44.1.1 --no-deps -q --target=.env/lib/python2.7/site-packages || echo "Basic packages installation failed, continuing anyway"
+              .env/bin/pip install pyasn1==0.4.8 pyasn1-modules==0.2.8 --no-deps -q --target=.env/lib/python2.7/site-packages || echo "ASN1 installation failed, continuing anyway"
+              .env/bin/pip install pyyaml==5.4.1 pillow==6.2.2 pygments==2.5.2 --no-deps -q --target=.env/lib/python2.7/site-packages || echo "Failed to install some packages, continuing anyway"
               
               # In the dev shell, we can try to install more packages
               echo "Installing additional Python dependencies..."
-              $PEBBLE_SDK/.env/bin/pip install websocket-client oauth2client pyserial peewee gevent --no-deps -q || echo "Some pip installs failed - continuing anyway"
+              .env/bin/pip install websocket-client oauth2client pyserial peewee gevent --no-deps -q --target=.env/lib/python2.7/site-packages || echo "Some pip installs failed - continuing anyway"
               
               # Install SDK components
               echo "Installing Pebble SDK components..."
@@ -379,22 +422,23 @@
               if [ -f requirements.txt ]; then
                 echo "Installing from requirements.txt..."
                 grep -v -E "pygeoip|pyasn1|virtualenv|pyyaml" requirements.txt > fixed-requirements.txt || true
-                $PEBBLE_SDK/.env/bin/pip install -r fixed-requirements.txt --no-deps -q || echo "Some pip installs failed - continuing anyway"
+                .env/bin/pip install -r fixed-requirements.txt --no-deps -q --target=.env/lib/python2.7/site-packages || echo "Some pip installs failed - continuing anyway"
               fi
               
               # Create required SDK configurations
               mkdir -p $HOME/.pebble-sdk
-              echo "1" > $HOME/.pebble-sdk/NO_TRACKING
+              touch $HOME/.pebble-sdk/NO_TRACKING || true
+              echo "1" > $HOME/.pebble-sdk/NO_TRACKING || echo "Failed to create NO_TRACKING file, continuing anyway"
             fi
             
             # Set environment for shell
             export PEBBLE_SDK=$HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
-            export PATH=$PEBBLE_SDK/bin:$PATH
+            export PATH=$PEBBLE_SDK/bin:$PEBBLE_SDK/.env/bin:$PATH
             
             echo "Pebble SDK environment ready."
             echo "  - Pebble SDK: $PEBBLE_SDK"
             echo "  - SDK Version: $(pebble --version 2>/dev/null || echo "unknown")"
-            echo "  - Python Env: source $PEBBLE_SDK/.env/bin/activate"
+            echo "  - Python Env: $PEBBLE_SDK/.env/bin/python"
             
             # Cleanup function when shell exits
             cleanup() {
