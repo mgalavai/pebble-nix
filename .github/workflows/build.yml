@@ -36,8 +36,11 @@ jobs:
           nix-channel --add https://nixos.org/channels/nixos-unstable nixos
           nix-channel --update
           
+          # Set environment to allow insecure packages (Python 2.7)
+          export NIXPKGS_ALLOW_INSECURE=1
+          
           # Build the project with increased log output
-          nix build --show-trace --verbose || {
+          nix build --show-trace --verbose --impure || {
             echo "Build failed, checking for errors..."
             find . -name "*.log" -exec cat {} \;
             exit 1

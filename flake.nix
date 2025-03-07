@@ -15,6 +15,7 @@
             allowUnfree = true;
             permittedInsecurePackages = [
               "openssl-1.0.2u"  # Needed for Pebble SDK
+              "python-2.7.18.8-env"  # Python 2.7 is required by Pebble SDK
             ];
           };
         };
@@ -79,6 +80,16 @@
             echo "Setting up build environment..."
             export HOME=$TMP_HOME
             mkdir -p $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
+            
+            # Create resources directory if it doesn't exist
+            mkdir -p resources/images
+            
+            # Create a simple placeholder background if it doesn't exist
+            if [ ! -f resources/images/background.png ]; then
+              echo "Creating placeholder background image..."
+              # Use base64 encoded minimal PNG (1x1 transparent pixel)
+              echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" | base64 -d > resources/images/background.png
+            fi
             
             # Download and extract Pebble SDK core
             echo "Downloading Pebble SDK core..."
