@@ -39,23 +39,41 @@ jobs:
           # Set environment to allow insecure packages (Python 2.7)
           export NIXPKGS_ALLOW_INSECURE=1
           
-          # Build the project with increased log output
-          nix build --show-trace --verbose --impure || {
-            echo "Build failed, checking for errors..."
-            find . -name "*.log" -exec cat {} \;
-            exit 1
-          }
+          # Create a wrapper script to handle additional environment settings
+          cat > build.sh << 'EOF'
+          #!/bin/bash
+          set -e
           
-          # Verify the build result
-          echo "Checking build result:"
-          ls -l result || echo "No result directory found"
+          # Set NIX_BUILD_SHELL to bash to avoid any potential shell issues
+          export NIX_BUILD_SHELL=/bin/bash
           
-          # If build succeeded, show contents
-          if [ -L "result" ]; then
+          # Build with extra safety flags
+          nix build --show-trace --verbose --impure
+          
+          # Check the result and show build artifacts
+          if [ -L result ]; then
             echo "Build succeeded! Result directory contents:"
             ls -la result/
-            ls -la result/bin/ || echo "No bin directory found"
+            find result -type f -name "*.pbw" | while read pbw; do
+              echo "Found .pbw file: $pbw"
+              file "$pbw" || echo "Could not determine file type"
+              ls -la "$pbw"
+            done
+          else
+            echo "Build failed, no result symlink found"
+            exit 1
           fi
+          EOF
+          
+          # Make the script executable
+          chmod +x build.sh
+          
+          # Run the wrapper script with proper error handling
+          ./build.sh || {
+            echo "Build failed, checking for error logs..."
+            find . -name "*.log" -exec cat {} \; || echo "No log files found"
+            exit 1
+          }
 
       # Upload artifacts
       - name: Upload Pebble app artifact
