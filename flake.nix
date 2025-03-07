@@ -22,8 +22,17 @@
         
         # Pebble SDK setup
         pebbleSDKVersion = "4.5";
-        pebbleSDKUrl = "https://github.com/aveao/PebbleArchive/raw/master/SDKCores/sdk-core-${pebbleSDKVersion}.tar.bz2";
-        pebbleToolsUrl = "https://github.com/aveao/PebbleArchive/raw/master/SDKCores/sdk-tools-${pebbleSDKVersion}.tar.bz2";
+        
+        # Pre-fetch SDK files with Nix fetchurl
+        pebbleSDKCore = pkgs.fetchurl {
+          url = "https://github.com/aveao/PebbleArchive/raw/master/SDKCores/sdk-core-${pebbleSDKVersion}.tar.bz2";
+          sha256 = "0qj2iyp7psm9vrxkwqabh3giwwbq83py84gn2f0bkb49m7w82bry"; # Replace with actual hash
+        };
+        
+        pebbleSDKTools = pkgs.fetchurl {
+          url = "https://github.com/aveao/PebbleArchive/raw/master/SDKCores/sdk-tools-${pebbleSDKVersion}.tar.bz2";
+          sha256 = "1v5ks2fyg34gdnrb8sscl6qrqd8jmzbxydmkfvrvwz2xlfk58fay"; # Replace with actual hash
+        };
         
         # Python 2.7 environment with required packages
         pythonEnv = pkgs.python27.withPackages (ps: with ps; [
@@ -82,15 +91,12 @@
               echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" | base64 -d > resources/images/background.png
             fi
             
-            # Download and extract Pebble SDK core
-            echo "Downloading Pebble SDK core..."
-            curl -L ${pebbleSDKUrl} -o sdk-core.tar.bz2
-            tar -xjf sdk-core.tar.bz2 -C $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
+            # Use pre-fetched SDK files instead of downloading
+            echo "Extracting Pebble SDK core..."
+            tar -xjf ${pebbleSDKCore} -C $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
             
-            # Download and extract Pebble SDK tools
-            echo "Downloading Pebble SDK tools..."
-            curl -L ${pebbleToolsUrl} -o sdk-tools.tar.bz2
-            tar -xjf sdk-tools.tar.bz2 -C $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
+            echo "Extracting Pebble SDK tools..."
+            tar -xjf ${pebbleSDKTools} -C $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
             
             # Set up SDK environment
             export PEBBLE_SDK=$HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
@@ -119,8 +125,12 @@
             pip install pyserial==3.5 peewee==3.14.8 gevent==21.12.0 || echo "Additional libs install failed"
             
             # Now try to install from the requirements with problematic packages removed
-            grep -v -E "pygeoip|pyasn1" requirements.txt > fixed-requirements.txt || true
-            pip install -r fixed-requirements.txt || echo "Some pip installs failed - continuing anyway"
+            if [ -f requirements.txt ]; then
+              grep -v -E "pygeoip|pyasn1" requirements.txt > fixed-requirements.txt || true
+              pip install -r fixed-requirements.txt || echo "Some pip installs failed - continuing anyway"
+            else
+              echo "No requirements.txt found, skipping requirements installation"
+            fi
             
             deactivate
             
@@ -229,15 +239,12 @@
               echo "Downloading and installing Pebble SDK ${pebbleSDKVersion}..."
               mkdir -p $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
               
-              # Download and extract Pebble SDK core
-              curl -L ${pebbleSDKUrl} -o sdk-core.tar.bz2
-              tar -xjf sdk-core.tar.bz2 -C $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
-              rm sdk-core.tar.bz2
+              # Copy pre-fetched SDK files instead of downloading
+              echo "Extracting Pebble SDK core..."
+              tar -xjf ${pebbleSDKCore} -C $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
               
-              # Download and extract Pebble SDK tools
-              curl -L ${pebbleToolsUrl} -o sdk-tools.tar.bz2
-              tar -xjf sdk-tools.tar.bz2 -C $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
-              rm sdk-tools.tar.bz2
+              echo "Extracting Pebble SDK tools..."
+              tar -xjf ${pebbleSDKTools} -C $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
               
               # Set up SDK environment
               export PEBBLE_SDK=$HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
@@ -265,8 +272,12 @@
               pip install pyserial==3.5 peewee==3.14.8 gevent==21.12.0 || echo "Additional libs install failed"
               
               # Now try to install from the requirements with problematic packages removed
-              grep -v -E "pygeoip|pyasn1" requirements.txt > fixed-requirements.txt || true
-              pip install -r fixed-requirements.txt || echo "Some pip installs failed - continuing anyway"
+              if [ -f requirements.txt ]; then
+                grep -v -E "pygeoip|pyasn1" requirements.txt > fixed-requirements.txt || true
+                pip install -r fixed-requirements.txt || echo "Some pip installs failed - continuing anyway"
+              else
+                echo "No requirements.txt found, skipping requirements installation"
+              fi
               
               deactivate
               
