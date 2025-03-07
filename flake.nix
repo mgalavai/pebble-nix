@@ -39,7 +39,6 @@
           pyserial
           peewee
           gevent
-          ssl
         ]);
         
         # Define paths for the build
