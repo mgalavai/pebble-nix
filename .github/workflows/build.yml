@@ -9,7 +9,7 @@ jobs:
       # Step 1: Check out your repository code
       - uses: actions/checkout@v2
 
-      # Step 2: Install Nix with a compatible configuration
+      # Step 2: Install Nix
       - uses: cachix/install-nix-action@v15
         with:
           nix_path: nixpkgs=channel:nixpkgs-unstable
@@ -17,21 +17,21 @@ jobs:
             experimental-features = nix-command flakes
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
-      # Step 3: Install Cachix explicitly as a fallback
+      # Step 3: Install Cachix manually
       - name: Install Cachix
         run: nix-env -iA cachix -f https://cachix.org/api/v1/install
 
-      # Step 4: Debug PATH and Cachix installation
-      - name: Debug PATH and Cachix
+      # Step 4: Verify Cachix installation
+      - name: Verify Cachix
         run: |
           echo "PATH is: $PATH"
-          which cachix || echo "cachix not found in PATH"
-          cachix --version || echo "cachix command failed"
+          which cachix || echo "cachix not found"
+          cachix --version || echo "cachix version check failed"
 
-      # Step 5: Use the Pebble cache with Cachix
-      - uses: cachix/cachix-action@v12
-        with:
-          name: pebble
+      # Step 5: Configure Cachix to use the pebble cache
+      - name: Configure Cachix
+        run: cachix use pebble
 
-      # Step 6: Build your Pebble app
-      - run: nix-shell --run "pebble build"
+      # Step 6: Build the Pebble app
+      - name: Build Pebble App
+        run: nix-shell --run "pebble build"
