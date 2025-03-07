@@ -171,7 +171,12 @@
             # Create basic structure for Pebble
             echo "Setting up build environment..."
             export HOME=$TMP_HOME
-            mkdir -p $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
+            mkdir -p $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64 || {
+              echo "Error: Failed to create directories in $TMPDIR"
+              # Fallback to a different location if TMPDIR fails
+              export HOME="$PWD/.pebble-home"
+              mkdir -p $HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
+            }
             
             # Create resources directory if it doesn't exist
             mkdir -p resources/images
@@ -204,6 +209,9 @@
             echo "Installing pip..."
             ${python27}/bin/python ${pipInstallerScript} ${python27}/bin/python &>/dev/null || echo "Pip installation failed, continuing anyway"
             
+            # Make sure pip is directly accessible
+            export PATH="$PEBBLE_SDK/.env/bin:$PATH"
+            
             # Set environment variables to work better in the sandbox and reduce noise
             export PIP_NO_INPUT=1
             export PIP_DISABLE_PIP_VERSION_CHECK=1
@@ -212,9 +220,9 @@
             # Install minimal required packages with versions known to work with Python 2.7
             echo "Installing necessary Python packages..."
             # Use --no-deps to prevent pip from trying to install potentially incompatible dependencies
-            pip install wheel==0.37.1 setuptools==44.1.1 --no-deps -q || echo "Basic packages installation failed, continuing anyway"
-            pip install pyasn1==0.4.8 pyasn1-modules==0.2.8 --no-deps -q || echo "ASN1 installation failed, continuing anyway"
-            pip install pyyaml==5.4.1 pillow==6.2.2 pygments==2.5.2 --no-deps -q || echo "Failed to install some packages, continuing anyway"
+            $PEBBLE_SDK/.env/bin/pip install wheel==0.37.1 setuptools==44.1.1 --no-deps -q || echo "Basic packages installation failed, continuing anyway"
+            $PEBBLE_SDK/.env/bin/pip install pyasn1==0.4.8 pyasn1-modules==0.2.8 --no-deps -q || echo "ASN1 installation failed, continuing anyway"
+            $PEBBLE_SDK/.env/bin/pip install pyyaml==5.4.1 pillow==6.2.2 pygments==2.5.2 --no-deps -q || echo "Failed to install some packages, continuing anyway"
             
             # According to the guide, we need to install SDK after the initial setup
             echo "Installing Pebble SDK components..."
@@ -229,16 +237,20 @@
             # Back to source directory
             cd $src
             
-            # Create required SDK configurations
-            mkdir -p $HOME/.pebble-sdk
+            # Create required SDK configurations - make sure the directory exists
+            mkdir -p $HOME/.pebble-sdk || true
             echo "1" > $HOME/.pebble-sdk/NO_TRACKING
           '';
           
           buildPhase = ''
             echo "Building Pebble app..."
-            export HOME=$TMP_HOME
+            export HOME="$TMP_HOME"
+            # If TMP_HOME doesn't exist, use the fallback
+            if [ ! -d "$HOME" ]; then
+              export HOME="$PWD/.pebble-home"
+            fi
             export PEBBLE_SDK=$HOME/pebble-dev/pebble-sdk-${pebbleSDKVersion}-linux64
-            export PATH=$PEBBLE_SDK/bin:$PATH
+            export PATH=$PEBBLE_SDK/bin:$PEBBLE_SDK/.env/bin:$PATH
             
             # Activate Python environment
             source $PEBBLE_SDK/.env/bin/activate
@@ -260,6 +272,12 @@
           
           installPhase = ''
             echo "Installing Pebble app..."
+            # Make sure we're using a valid HOME
+            if [ ! -d "$TMP_HOME" ]; then
+              export HOME="$PWD/.pebble-home"
+            else
+              export HOME="$TMP_HOME"
+            fi
             mkdir -p $out/{bin,src}
             
             # Copy the build artifact with better path handling
@@ -340,15 +358,18 @@
               echo "Installing pip..."
               ${python27}/bin/python ${pipInstallerScript} ${python27}/bin/python &>/dev/null || echo "Pip installation failed, continuing anyway"
               
+              # Make sure pip is directly accessible
+              export PATH="$PEBBLE_SDK/.env/bin:$PATH"
+              
               # Install minimal required packages with versions known to work with Python 2.7
               echo "Installing necessary Python packages..."
-              pip install wheel==0.37.1 setuptools==44.1.1 --no-deps -q || echo "Basic packages installation failed, continuing anyway"
-              pip install pyasn1==0.4.8 pyasn1-modules==0.2.8 --no-deps -q || echo "ASN1 installation failed, continuing anyway"
-              pip install pyyaml==5.4.1 pillow==6.2.2 pygments==2.5.2 --no-deps -q || echo "Failed to install some packages, continuing anyway"
+              $PEBBLE_SDK/.env/bin/pip install wheel==0.37.1 setuptools==44.1.1 --no-deps -q || echo "Basic packages installation failed, continuing anyway"
+              $PEBBLE_SDK/.env/bin/pip install pyasn1==0.4.8 pyasn1-modules==0.2.8 --no-deps -q || echo "ASN1 installation failed, continuing anyway"
+              $PEBBLE_SDK/.env/bin/pip install pyyaml==5.4.1 pillow==6.2.2 pygments==2.5.2 --no-deps -q || echo "Failed to install some packages, continuing anyway"
               
               # In the dev shell, we can try to install more packages
               echo "Installing additional Python dependencies..."
-              pip install websocket-client oauth2client pyserial peewee gevent --no-deps -q || echo "Some pip installs failed - continuing anyway"
+              $PEBBLE_SDK/.env/bin/pip install websocket-client oauth2client pyserial peewee gevent --no-deps -q || echo "Some pip installs failed - continuing anyway"
               
               # Install SDK components
               echo "Installing Pebble SDK components..."
@@ -358,7 +379,7 @@
               if [ -f requirements.txt ]; then
                 echo "Installing from requirements.txt..."
                 grep -v -E "pygeoip|pyasn1|virtualenv|pyyaml" requirements.txt > fixed-requirements.txt || true
-                pip install -r fixed-requirements.txt --no-deps -q || echo "Some pip installs failed - continuing anyway"
+                $PEBBLE_SDK/.env/bin/pip install -r fixed-requirements.txt --no-deps -q || echo "Some pip installs failed - continuing anyway"
               fi
               
               # Create required SDK configurations

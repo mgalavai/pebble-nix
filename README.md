@@ -9,6 +9,8 @@ A full-featured Pebble smartwatch development environment in the cloud. This pro
   - Implemented bare Python 2.7 setup with zero dependencies to avoid conflicts
   - Created a custom Python environment from scratch with manual pip installation
   - Used strictly Python 2.7 compatible package versions (pyyaml, pillow, etc.)
+  - Fixed pip command not found errors with absolute paths to pip executable
+  - Added TMPDIR permission fallback mechanism for restricted environments
   - Updated to Pebble SDK 4.6-rc2 using Rebble-hosted files (more reliable)
   - Fixed SDK hash verification for proper file integrity checking
   - Added offline mode for builds to work in Nix's restricted network environment
