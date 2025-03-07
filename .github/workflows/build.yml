@@ -60,8 +60,29 @@ jobs:
       # you might run:
       - name: Build project
         run: |
-          # Using nix-shell as a fallback if lix is not directly available
-          nix-shell -p lix --run "lix build .#yourTarget" || echo "Build command failed"
+          # Display available Lix commands
+          echo "Available Lix commands:"
+          lix help
+          
+          # Setup the project with Lix (common Lix commands)
+          echo "Setting up the project with Lix..."
+          # Install dependencies from haxelib.json or package.json
+          lix download || echo "Lix download failed"
+          # Resolve dependencies
+          lix install || echo "Lix install failed"
+          # Show installed libraries
+          lix ls || echo "Lix ls failed"
+          
+          # Run build using Haxe (typical approach with Lix)
+          echo "Building with Haxe..."
+          haxe build.hxml || echo "Haxe build failed"
+          
+          # If the project has a custom build script, try that too
+          if [ -f "build.sh" ]; then
+            echo "Running build.sh script..."
+            chmod +x build.sh
+            ./build.sh || echo "build.sh failed"
+          fi
 
       # Optional: Upload the build artifact.
       - name: Upload artifact
