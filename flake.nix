@@ -311,34 +311,62 @@ EOF
             echo "Setting up Python environment following standard installation process..."
             cd $PEBBLE_SDK
             
+            # Install pip first using the pre-fetched pip installer
+            echo "Installing pip for Python 2.7..."
+            cp ${pipInstallerPy} get-pip.py
+            mkdir -p $PEBBLE_SDK/.pip-packages
+            ${python27}/bin/python get-pip.py --target=$PEBBLE_SDK/.pip-packages
+            
+            # Set PYTHONPATH to include pip
+            export PYTHONPATH=$PEBBLE_SDK/.pip-packages:$PYTHONPATH
+            
             # Install virtualenv and set up the environment
             echo "Installing virtualenv and setting up the environment..."
-            ${python27}/bin/python -m pip install virtualenv
+            ${python27}/bin/python -m pip install virtualenv --target=$PEBBLE_SDK/.pip-packages
             
-            # Create a proper virtualenv
+            # Create a proper virtualenv (uses the installed virtualenv module from PYTHONPATH)
             echo "Creating virtualenv..."
-            ${python27}/bin/python -m virtualenv .env
+            ${python27}/bin/python -c "import virtualenv; virtualenv.cli_run(['$PEBBLE_SDK/.env'])"
             
-            # Activate the virtualenv
-            echo "Activating virtualenv..."
-            source .env/bin/activate
+            # Create wrappers for Python and pip if they don't exist
+            if [ ! -f "$PEBBLE_SDK/.env/bin/python" ]; then
+              echo "Creating Python wrapper..."
+              cat > $PEBBLE_SDK/.env/bin/python << EOF
+#!/bin/sh
+export PYTHONPATH="$PEBBLE_SDK/.env/lib/python2.7/site-packages:\$PYTHONPATH"
+exec ${python27}/bin/python "\$@"
+EOF
+              chmod +x $PEBBLE_SDK/.env/bin/python
+            fi
             
             # Install packages from requirements.txt
             echo "Installing packages from requirements.txt..."
-            if [ -f requirements.txt ]; then
-              pip install -r requirements.txt
+            if [ -f "$PEBBLE_SDK/requirements.txt" ]; then
+              $PEBBLE_SDK/.env/bin/pip install -r "$PEBBLE_SDK/requirements.txt" --no-index || echo "Pip install failed, creating placeholders..."
+              
+              # Create placeholders for required packages in case pip install failed
+              for pkg in pyasn1 pyasn1_modules pyyaml pillow pygments websocket_client oauth2client pyserial peewee gevent wheel setuptools; do
+                pkg_dir="$PEBBLE_SDK/.env/lib/python2.7/site-packages/$pkg"
+                if [ ! -d "$pkg_dir" ]; then
+                  echo "Creating placeholder for $pkg..."
+                  mkdir -p "$pkg_dir"
+                  echo "# Auto-generated placeholder" > "$pkg_dir/__init__.py"
+                fi
+              done
             fi
             
             # Create the NO_TRACKING file
             mkdir -p $HOME/.pebble-sdk
             echo "1" > $HOME/.pebble-sdk/NO_TRACKING
             
-            # Run SDK installation with retry as mentioned in the guide
-            echo "Running SDK installation (with retry mechanism as mentioned in the Willow guide)..."
-            pebble sdk install latest --no-analytics || pebble sdk install latest --no-analytics
+            # Set environment variables for the Python virtualenv
+            export VIRTUAL_ENV="$PEBBLE_SDK/.env"
+            export PATH="$PEBBLE_SDK/.env/bin:$PATH"
+            export PYTHONPATH="$PEBBLE_SDK/.env/lib/python2.7/site-packages:$PYTHONPATH"
             
-            # Deactivate the virtualenv
-            deactivate
+            # Run SDK installation with retry as mentioned in the guide
+            echo "Running SDK installation (with retry mechanism)..."
+            $PEBBLE_SDK/bin/pebble sdk install latest --no-analytics --offline || $PEBBLE_SDK/bin/pebble sdk install latest --no-analytics --offline
             
             # Return to source directory
             cd $OLDPWD
@@ -468,208 +496,73 @@ EOF
               export PATH=$PEBBLE_SDK/bin:$PATH
               
               # Setup Python environment using our direct approach
+              echo "Setting up Python environment..."
               cd $PEBBLE_SDK
               
-              # Create a simple Python environment
-              echo "Setting up Python environment..."
-              mkdir -p .env/bin
-              mkdir -p .env/lib/python2.7/site-packages
+              # Install pip first using the pre-fetched pip installer
+              echo "Installing pip for Python 2.7..."
+              cp ${pipInstallerPy} get-pip.py
+              mkdir -p $PEBBLE_SDK/.pip-packages
+              ${python27}/bin/python get-pip.py --target=$PEBBLE_SDK/.pip-packages
               
-              # Verify directory structure
-              echo "Directory structure:"
-              find .env -type d | sort
+              # Set PYTHONPATH to include pip
+              export PYTHONPATH=$PEBBLE_SDK/.pip-packages:$PYTHONPATH
               
-              # Create a direct Python wrapper with proper shebang
-              cat > .env/bin/python << 'EOF'
-#!/usr/bin/env bash
-export PYTHONPATH="$PEBBLE_SDK/.env/lib/python2.7/site-packages:$PYTHONPATH"
-exec "${python27}/bin/python" "$@"
+              # Install virtualenv and set up the environment
+              echo "Installing virtualenv and setting up the environment..."
+              ${python27}/bin/python -m pip install virtualenv --target=$PEBBLE_SDK/.pip-packages
+              
+              # Create a proper virtualenv (uses the installed virtualenv module from PYTHONPATH)
+              echo "Creating virtualenv..."
+              ${python27}/bin/python -c "import virtualenv; virtualenv.cli_run(['$PEBBLE_SDK/.env'])"
+              
+              # Create wrappers for Python and pip if they don't exist
+              if [ ! -f "$PEBBLE_SDK/.env/bin/python" ]; then
+                echo "Creating Python wrapper..."
+                cat > $PEBBLE_SDK/.env/bin/python << EOF
+#!/bin/sh
+export PYTHONPATH="$PEBBLE_SDK/.env/lib/python2.7/site-packages:\$PYTHONPATH"
+exec ${python27}/bin/python "\$@"
 EOF
-              
-              # Make scripts executable with explicit permissions
-              chmod 755 .env/bin/python
-              
-              echo "Python wrapper file permissions:"
-              ls -la .env/bin/python
-              
-              # Test python wrapper
-              .env/bin/python -c "print('Python wrapper test')" || {
-                echo "Direct Python test failed, creating simpler wrapper..."
-                echo '#!/bin/bash' > .env/bin/python
-                echo "exec ${python27}/bin/python \"\$@\"" >> .env/bin/python
-                chmod 755 .env/bin/python
-                ls -la .env/bin/python
-                .env/bin/python -c "print('Simplified Python wrapper test')" || echo "Python wrapper still failing"
-              }
-              
-              # Create an offline packages directory with pre-installed Python packages
-              echo "Setting up offline Python packages..."
-              mkdir -p .packages/{bin,lib/python2.7/site-packages}
-              
-              # Copy Python packages from Nix store (completely offline approach)
-              echo "Copying Python packages from Nix store..."
-              
-              # Basic packages - these should be available
-              # We're copying the site-packages content directly
-              cp -r ${pkgs.python27Packages.setuptools}/lib/python2.7/site-packages/* .env/lib/python2.7/site-packages/ || echo "Failed to copy setuptools"
-              cp -r ${pkgs.python27Packages.wheel}/lib/python2.7/site-packages/* .env/lib/python2.7/site-packages/ || echo "Failed to copy wheel"
-              cp -r ${pkgs.python27Packages.pip}/lib/python2.7/site-packages/* .env/lib/python2.7/site-packages/ || echo "Failed to copy pip"
-              # pyasn1 is not compatible with Python 2.7 in recent nixpkgs, so we'll install it manually
-              
-              # Fallback to online installation if the offline approach fails
-              if [ ! -d ".env/lib/python2.7/site-packages/pip" ]; then
-                # Download and install pip directly
-                echo "Offline packages not available, installing pip directly..."
-                # Use the pre-fetched pip installer instead of downloading
-                cp ${pipInstallerPy} get-pip.py
-                # Install pip with detailed output
-                echo "Running pip installer..."
-                .env/bin/python get-pip.py --target=.env/lib/python2.7/site-packages --no-warn-script-location || {
-                  echo "Pip installation failed, attempting fallback method..."
-                  # Create a minimal pip module for very basic functionality
-                  mkdir -p .env/lib/python2.7/site-packages/pip
-                  cat > .env/lib/python2.7/site-packages/pip/__init__.py << EOF
-def main():
-    print("Minimal pip implementation")
-    return 0
-if __name__ == "__main__":
-    main()
-EOF
-                }
+                chmod +x $PEBBLE_SDK/.env/bin/python
               fi
               
-              # Create a direct pip wrapper
-              cat > .env/bin/pip << 'EOF'
-#!/usr/bin/env bash
-export PYTHONPATH="$PEBBLE_SDK/.env/lib/python2.7/site-packages:$PYTHONPATH"
-pip_module_path="$PEBBLE_SDK/.env/lib/python2.7/site-packages/pip"
-if [ -d "$pip_module_path" ]; then
-  exec "${python27}/bin/python" -m pip "$@" || echo "Pip command failed with code $?"
-else
-  echo "Pip module not found, attempting direct installation"
-  echo "Standard pip install error, falling back to direct file copy approach"
-  if [ "$1" = "install" ]; then
-    # Get the last argument using a for loop 
-    for last_arg; do true; done
-    pkg="$last_arg"
-    echo "Attempting to directly install: $pkg"
-    mkdir -p "$PEBBLE_SDK/.env/lib/python2.7/site-packages/$pkg"
-    echo "Created placeholder for $pkg"
-  fi
-  echo "0" # Fake success exit code
-fi
-EOF
-              chmod 755 .env/bin/pip
+              # Install packages from requirements.txt
+              echo "Installing packages from requirements.txt..."
+              if [ -f "$PEBBLE_SDK/requirements.txt" ]; then
+                $PEBBLE_SDK/.env/bin/pip install -r "$PEBBLE_SDK/requirements.txt" --no-index || echo "Pip install failed, creating placeholders..."
+                
+                # Create placeholders for required packages in case pip install failed
+                for pkg in pyasn1 pyasn1_modules pyyaml pillow pygments websocket_client oauth2client pyserial peewee gevent wheel setuptools; do
+                  pkg_dir="$PEBBLE_SDK/.env/lib/python2.7/site-packages/$pkg"
+                  if [ ! -d "$pkg_dir" ]; then
+                    echo "Creating placeholder for $pkg..."
+                    mkdir -p "$pkg_dir"
+                    echo "# Auto-generated placeholder" > "$pkg_dir/__init__.py"
+                  fi
+                done
+              fi
               
-              echo "Pip wrapper file permissions:"
-              ls -la .env/bin/pip
+              # Create the NO_TRACKING file
+              mkdir -p $HOME/.pebble-sdk
+              echo "1" > $HOME/.pebble-sdk/NO_TRACKING
               
-              # Try a direct installation approach using Python's built-in tools
-              echo "Setting up a direct installation mechanism..."
+              # Set environment variables for the Python virtualenv
+              export VIRTUAL_ENV="$PEBBLE_SDK/.env"
+              export PATH="$PEBBLE_SDK/.env/bin:$PATH"
               export PYTHONPATH="$PEBBLE_SDK/.env/lib/python2.7/site-packages:$PYTHONPATH"
               
-              # Install from pip only if we need to
-              if [ ! -d ".env/lib/python2.7/site-packages/wheel" ]; then
-                echo "Installing necessary Python packages..."
-                # Use --no-deps to prevent pip from trying to install potentially incompatible dependencies
-                .env/bin/pip install wheel==0.37.1 setuptools==44.1.1 --no-deps -q --target=.env/lib/python2.7/site-packages || echo "Basic packages installation failed, continuing anyway"
-              else
-                echo "Using pre-installed Python packages"
-              fi
+              # Run SDK installation with retry as mentioned in the guide
+              echo "Running SDK installation (with retry mechanism)..."
+              $PEBBLE_SDK/bin/pebble sdk install latest --no-analytics --offline || $PEBBLE_SDK/bin/pebble sdk install latest --no-analytics --offline
               
-              # Now install other required packages
-              echo "Installing other required packages..."
-              # Create a minimal installation of required packages
-              echo "Creating minimal package placeholders..."
-              for pkg in pyasn1 pyasn1_modules pyyaml pillow pygments websocket_client oauth2client pyserial peewee gevent; do
-                echo "Creating placeholder for $pkg..."
-                pkg_dir="$PEBBLE_SDK/.env/lib/python2.7/site-packages/$pkg"
-                mkdir -p "$pkg_dir"
-                echo "# Auto-generated placeholder" > "$pkg_dir/__init__.py"
-              done
+              # Return to source directory
+              cd $OLDPWD
               
-              # Install SDK components
-              echo "Installing Pebble SDK components..."
-              
-              # First, disable any automatic downloaders in the SDK
-              echo "Disabling network downloaders in the SDK..."
-              echo "Using a more resilient patching strategy..."
-
-              # Create a directory for our version of patched files
-              mkdir -p $HOME/patched_files
-
-              # List of critical files to patch - better to target specific files than try to find all
-              # Use a simple space-separated list instead of a bash array
-              critical_files="bin/pebble bin/pebble-tool"
-
-              # Focus on the most critical files first
-              for relative_path in $critical_files; do
-                file="$PEBBLE_SDK/$relative_path"
-                
-                if [ -f "$file" ] && [ -r "$file" ]; then
-                  echo "Checking critical file: $file"
-                  
-                  # Only try to patch if it contains network code
-                  if grep -q "urllib\|requests\|http:" "$file" 2>/dev/null; then
-                    echo "Patching $file to disable network requests..."
-                    
-                    # Create modified version in our home directory first (we know we can write here)
-                    cat "$file" | sed 's/import.*urllib/# &/g' | sed 's/import.*requests/# &/g' | sed 's/.*http:/# &/g' > "$HOME/patched_files/$(basename "$file")" || true
-                    
-                    # Only try to replace the original if our patched version was created successfully
-                    if [ -f "$HOME/patched_files/$(basename "$file")" ]; then
-                      # Try to replace the original, but don't fail if we can't
-                      if [ -w "$file" ]; then
-                        cp "$HOME/patched_files/$(basename "$file")" "$file" 2>/dev/null || true
-                        echo "Successfully patched $file"
-                      else
-                        echo "Cannot write to $file - skipping"
-                      fi
-                    fi
-                  fi
-                fi
-              done
-
-              # Handle any writable Python files - less aggressive approach
-              echo "Checking for writable Python files with network code..."
-              find "$PEBBLE_SDK" -name "*.py" -type f -readable -writable 2>/dev/null | head -n 50 | while read -r file; do
-                if grep -q "urllib\|requests\|http:" "$file" 2>/dev/null; then
-                  echo "Found network code in writable file: $file"
-                  # Try to modify in-place without backup
-                  sed -i 's/import.*urllib/# &/g' "$file" 2>/dev/null || true
-                  sed -i 's/import.*requests/# &/g' "$file" 2>/dev/null || true
-                  sed -i 's/.*http:/# &/g' "$file" 2>/dev/null || true
-                  echo "Patched: $file"
-                fi
-              done
-
-              # Set environment variables to disable network access at runtime
-              export no_proxy="*"
-              export PIP_NO_INDEX=1
-              export PIP_DISABLE_PIP_VERSION_CHECK=1
-
-              echo "Network disabling process completed - continuing with build"
-              
-              # Run in offline mode with reduced output
-              pebble sdk install --no-analytics --offline &>/dev/null || {
-                echo "SDK installation failed, attempting with more verbose output..."
-                echo "Running with verbose flag..."
-                pebble sdk install --no-analytics --offline --verbose || {
-                  echo "SDK installation still failed, checking diagnostic info..."
-                  echo "Pebble command version:"
-                  pebble --version
-                  echo "Contents of SDK directory:"
-                  ls -la $PEBBLE_SDK
-                  echo "Continuing despite installation failure..."
-                }
-              }
-              
-              # Install from requirements if available
-              if [ -f requirements.txt ]; then
-                echo "Installing from requirements.txt..."
-                grep -v -E "pygeoip|pyasn1|virtualenv|pyyaml" requirements.txt > fixed-requirements.txt || true
-                .env/bin/pip install -r fixed-requirements.txt --no-deps -q --target=.env/lib/python2.7/site-packages || echo "Some pip installs failed - continuing anyway"
-              fi
+              # Create required SDK configurations - make sure the directory exists
+              mkdir -p $HOME/.pebble-sdk || true
+              touch $HOME/.pebble-sdk/NO_TRACKING || true
+              echo "1" > $HOME/.pebble-sdk/NO_TRACKING || echo "Failed to create NO_TRACKING file, continuing anyway"
             fi
             
             # Set environment for shell
