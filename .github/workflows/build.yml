@@ -21,13 +21,15 @@ jobs:
       - name: Configure Cachix
         run: nix-shell -p cachix --run "cachix use pebble"
 
-      # Step 4: Build the Pebble app with license prompt disabled
+      # Step 4: Install Pebble SDK and accept license
+      - name: Install Pebble SDK
+        run: echo "y" | nix-shell --run "pebble sdk install latest"
+
+      # Step 5: Build the Pebble app
       - name: Build Pebble App
-        env:
-          PEBBLE_NO_LICENSE_PROMPT: "1"  # Skips the license prompt
         run: nix-shell --run "pebble build"
 
-      # Step 5: Upload the built artifact
+      # Step 6: Upload the built artifact
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
